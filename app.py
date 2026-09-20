@@ -154,15 +154,21 @@ if menu == "Dashboard":
                 st.write("Sem despesas para mostrar neste período.")
                 
         with col_graf2:
-            st.subheader("Gastos por Conta/Cartão")
+            st.subheader("Gastos por Cartão de Crédito")
             if not df_despesas.empty:
-                # Gráfico de Barras Horizontais ordenado
-                df_bar = df_despesas.groupby('conta_cartao')['valor'].sum().reset_index().sort_values('valor', ascending=True)
-                fig2 = px.bar(df_bar, x='valor', y='conta_cartao', orientation='h', 
-                              color='conta_cartao', text='valor', color_discrete_sequence=px.colors.qualitative.Set2)
-                fig2.update_traces(texttemplate='R$ %{text:,.2s}', textposition='outside')
-                fig2.update_layout(showlegend=False, xaxis_title="", yaxis_title="", margin=dict(t=20, b=20, l=0, r=0))
-                st.plotly_chart(fig2, use_container_width=True)
+                # Filtrar apenas o que é cartão
+                df_cartoes = df_despesas[df_despesas['conta_cartao'].str.contains('Cartão', case=False, na=False)].copy()
+                
+                if not df_cartoes.empty:
+                    # Gráfico de Barras Horizontais ordenado
+                    df_bar = df_cartoes.groupby('conta_cartao')['valor'].sum().reset_index().sort_values('valor', ascending=True)
+                    fig2 = px.bar(df_bar, x='valor', y='conta_cartao', orientation='h', 
+                                  color='conta_cartao', text='valor', color_discrete_sequence=px.colors.qualitative.Set2)
+                    fig2.update_traces(texttemplate='R$ %{text:,.2s}', textposition='outside')
+                    fig2.update_layout(showlegend=False, xaxis_title="", yaxis_title="", margin=dict(t=20, b=20, l=0, r=0))
+                    st.plotly_chart(fig2, use_container_width=True)
+                else:
+                    st.write("Nenhum gasto em cartão neste período.")
             else:
                 st.write("Sem dados para mostrar neste período.")
 
