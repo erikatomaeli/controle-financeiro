@@ -7,7 +7,58 @@ from supabase import create_client, Client
 # Configuração da página
 st.set_page_config(page_title="Controle Financeiro Familiar", page_icon="💰", layout="wide")
 
-# Conectar ao Supabase usando as chaves seguras
+# ==========================================
+# SISTEMA DE LOGIN SEGURANÇA
+# ==========================================
+def check_password():
+    """Retorna True se o usuário inserir o login e senha corretos."""
+    
+    def password_entered():
+        # Verifica se o usuário existe nos secrets e se a senha bate
+        usuario = st.session_state["username"]
+        senha_digitada = st.session_state["password"]
+        
+        # Lê os usuários e senhas do secrets
+        if "passwords" in st.secrets and usuario in st.secrets["passwords"]:
+            if senha_digitada == st.secrets["passwords"][usuario]:
+                st.session_state["password_correct"] = True
+                del st.session_state["password"]  # apaga a senha da memória por segurança
+                st.session_state["logged_user"] = usuario
+                return
+                
+        st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        # Primeira vez abrindo o app, mostra o formulário
+        st.title("🔒 Acesso Restrito")
+        st.write("Por favor, faça login para acessar o Controle Financeiro.")
+        st.text_input("Usuário", key="username")
+        st.text_input("Senha", type="password", key="password")
+        st.button("Entrar", on_click=password_entered)
+        return False
+        
+    elif not st.session_state["password_correct"]:
+        # Errou a senha
+        st.title("🔒 Acesso Restrito")
+        st.text_input("Usuário", key="username")
+        st.text_input("Senha", type="password", key="password")
+        st.button("Entrar", on_click=password_entered)
+        st.error("😕 Usuário ou senha incorretos!")
+        return False
+        
+    else:
+        # Senha correta, libera o app
+        return True
+
+# Se o login não for válido, para o código aqui e não carrega o resto do site
+if not check_password():
+    st.stop()
+
+# ==========================================
+# SISTEMA FINANCEIRO (O RESTO DO SEU APP)
+# ==========================================
+
+# Conectar ao Supabase
 @st.cache_resource
 def init_connection():
     url = st.secrets["SUPABASE_URL"]
@@ -37,7 +88,8 @@ def carregar_dados():
 df = carregar_dados()
 
 # Menu lateral
-st.sidebar.title("💰 Meu Controle")
+usuario_logado = st.session_state.get("logged_user", "Usuário").capitalize()
+st.sidebar.title(f"💰 Olá, {usuario_logado}!")
 menu = st.sidebar.radio("Navegação", ["Dashboard", "Lançamentos", "Ver Tabela Completa"])
 
 if menu == "Dashboard":
@@ -148,4 +200,7 @@ elif menu == "Ver Tabela Completa":
                     st.error("Erro ao apagar.")
 
 st.sidebar.markdown("---")
+if st.sidebar.button("Sair (Logout)"):
+    st.session_state.clear()
+    st.rerun()
 st.sidebar.success("✅ Conectado ao Supabase na Nuvem!")
