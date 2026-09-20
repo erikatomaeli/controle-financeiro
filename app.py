@@ -98,8 +98,23 @@ if menu == "Dashboard":
     if df.empty:
         st.info("Nenhum dado lançado ainda.")
     else:
-        receitas = df[df['tipo'] == 'Crédito']['valor'].astype(float).sum()
-        despesas = df[df['tipo'] == 'Débito']['valor'].astype(float).sum()
+        # Filtro de Ano
+        df['ano'] = df['data'].dt.year
+        anos_disponiveis = sorted(df['ano'].dropna().unique().tolist(), reverse=True)
+        
+        col_filtro, _ = st.columns([1, 3])
+        with col_filtro:
+            ano_selecionado = st.selectbox("Filtrar por Ano:", ["Todos"] + anos_disponiveis)
+            
+        if ano_selecionado != "Todos":
+            df_dash = df[df['ano'] == ano_selecionado].copy()
+        else:
+            df_dash = df.copy()
+            
+        st.markdown("---")
+            
+        receitas = df_dash[df_dash['tipo'] == 'Crédito']['valor'].astype(float).sum()
+        despesas = df_dash[df_dash['tipo'] == 'Débito']['valor'].astype(float).sum()
         saldo = receitas - despesas
         
         col1, col2, col3 = st.columns(3)
@@ -113,13 +128,13 @@ if menu == "Dashboard":
         
         with col_graf1:
             st.subheader("Despesas por Categoria")
-            df_despesas = df[df['tipo'] == 'Débito'].copy()
+            df_despesas = df_dash[df_dash['tipo'] == 'Débito'].copy()
             if not df_despesas.empty:
                 df_despesas['valor'] = df_despesas['valor'].astype(float)
                 fig1 = px.pie(df_despesas, values='valor', names='categoria', hole=0.4)
                 st.plotly_chart(fig1, use_container_width=True)
             else:
-                st.write("Sem despesas para mostrar.")
+                st.write("Sem despesas para mostrar neste ano.")
                 
         with col_graf2:
             st.subheader("Gastos por Conta/Cartão")
@@ -128,7 +143,7 @@ if menu == "Dashboard":
                               x='conta_cartao', y='valor', color='conta_cartao')
                 st.plotly_chart(fig2, use_container_width=True)
             else:
-                st.write("Sem dados para mostrar.")
+                st.write("Sem dados para mostrar neste ano.")
 
 elif menu == "Lançamentos":
     st.title("➕ Novo Lançamento")
