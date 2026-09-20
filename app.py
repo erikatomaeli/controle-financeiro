@@ -103,7 +103,12 @@ st.sidebar.title(f"💰 Olá, {usuario_logado}!")
 menu = st.sidebar.radio("Navegação", ["Dashboard", "Lançamentos", "Ver Tabela Completa", "Relatórios", "Cartões de Crédito"])
 
 if menu == "Dashboard":
-    st.title("📊 Dashboard Financeiro")
+    col_titulo, col_toggle = st.columns([3, 1])
+    with col_titulo:
+        st.title("📊 Dashboard Financeiro")
+    with col_toggle:
+        st.write("") # Espaçamento
+        mostrar_valores = st.toggle("👁️ Mostrar Valores", value=False)
     
     if df.empty:
         st.info("Nenhum dado lançado ainda.")
@@ -131,10 +136,15 @@ if menu == "Dashboard":
         despesas = df_dash[df_dash['tipo'] == 'Débito']['valor'].astype(float).sum()
         saldo = receitas - despesas
         
+        # Oculta os valores se o toggle estiver desligado
+        val_receitas = formatar_real(receitas) if mostrar_valores else "R$ •••••"
+        val_despesas = formatar_real(despesas) if mostrar_valores else "R$ •••••"
+        val_saldo = formatar_real(saldo) if mostrar_valores else "R$ •••••"
+        
         col1, col2, col3 = st.columns(3)
-        col1.metric("Receitas", formatar_real(receitas))
-        col2.metric("Despesas", formatar_real(despesas))
-        col3.metric("Saldo", formatar_real(saldo))
+        col1.metric("Receitas", val_receitas)
+        col2.metric("Despesas", val_despesas)
+        col3.metric("Saldo", val_saldo)
         
         st.markdown("---")
         
@@ -147,7 +157,11 @@ if menu == "Dashboard":
                 df_despesas['valor'] = df_despesas['valor'].astype(float)
                 # Gráfico de Rosca moderno
                 fig1 = px.pie(df_despesas, values='valor', names='categoria', hole=0.5, color_discrete_sequence=px.colors.qualitative.Pastel)
-                fig1.update_traces(textposition='inside', textinfo='percent+label')
+                
+                # Ocultar % do gráfico se não estiver mostrando valores
+                info_grafico = 'percent+label' if mostrar_valores else 'label'
+                fig1.update_traces(textposition='inside', textinfo=info_grafico)
+                
                 fig1.update_layout(showlegend=False, margin=dict(t=20, b=20, l=0, r=0))
                 st.plotly_chart(fig1, use_container_width=True)
             else:
@@ -164,7 +178,11 @@ if menu == "Dashboard":
                     df_bar = df_cartoes.groupby('conta_cartao')['valor'].sum().reset_index().sort_values('valor', ascending=True)
                     fig2 = px.bar(df_bar, x='valor', y='conta_cartao', orientation='h', 
                                   color='conta_cartao', text='valor', color_discrete_sequence=px.colors.qualitative.Set2)
-                    fig2.update_traces(texttemplate='R$ %{text:,.2s}', textposition='outside')
+                                  
+                    # Se o olho estiver ativado, mostra R$ real, se não mostra pontinhos na barra
+                    formato_texto = 'R$ %{text:,.2s}' if mostrar_valores else 'R$ •••••'
+                    fig2.update_traces(texttemplate=formato_texto, textposition='outside')
+                    
                     fig2.update_layout(showlegend=False, xaxis_title="", yaxis_title="", margin=dict(t=20, b=20, l=0, r=0))
                     st.plotly_chart(fig2, use_container_width=True)
                 else:
