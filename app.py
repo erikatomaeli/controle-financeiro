@@ -1,35 +1,39 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from datetime import datetime
+from datetime import datetime, timedelta
 from supabase import create_client, Client
 
 # Configuração da página
 st.set_page_config(page_title="Controle Financeiro Familiar", page_icon="💰", layout="wide")
 
+# Função auxiliar para formatar moeda em Reais (PT-BR)
+def formatar_real(valor):
+    if pd.isna(valor):
+        return "R$ 0,00"
+    valor_formatado = f"{float(valor):,.2f}"
+    # Trocar vírgula por ponto (milhar) e ponto por vírgula (decimal)
+    valor_formatado = valor_formatado.replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"R$ {valor_formatado}"
+
 # ==========================================
 # SISTEMA DE LOGIN SEGURANÇA
 # ==========================================
 def check_password():
-    """Retorna True se o usuário inserir o login e senha corretos."""
-    
     def password_entered():
-        # Verifica se o usuário existe nos secrets e se a senha bate
         usuario = st.session_state["username"]
         senha_digitada = st.session_state["password"]
         
-        # Lê os usuários e senhas do secrets
         if "passwords" in st.secrets and usuario in st.secrets["passwords"]:
             if senha_digitada == st.secrets["passwords"][usuario]:
                 st.session_state["password_correct"] = True
-                del st.session_state["password"]  # apaga a senha da memória por segurança
+                del st.session_state["password"]
                 st.session_state["logged_user"] = usuario
                 return
                 
         st.session_state["password_correct"] = False
 
     if "password_correct" not in st.session_state:
-        # Primeira vez abrindo o app, mostra o formulário
         st.title("🔒 Acesso Restrito")
         st.write("Por favor, faça login para acessar o Controle Financeiro.")
         st.text_input("Usuário", key="username")
@@ -38,7 +42,6 @@ def check_password():
         return False
         
     elif not st.session_state["password_correct"]:
-        # Errou a senha
         st.title("🔒 Acesso Restrito")
         st.text_input("Usuário", key="username")
         st.text_input("Senha", type="password", key="password")
@@ -47,18 +50,15 @@ def check_password():
         return False
         
     else:
-        # Senha correta, libera o app
         return True
 
-# Se o login não for válido, para o código aqui e não carrega o resto do site
 if not check_password():
     st.stop()
 
 # ==========================================
-# SISTEMA FINANCEIRO (O RESTO DO SEU APP)
+# SISTEMA FINANCEIRO
 # ==========================================
 
-# Conectar ao Supabase
 @st.cache_resource
 def init_connection():
     url = st.secrets["SUPABASE_URL"]
@@ -67,7 +67,6 @@ def init_connection():
 
 supabase: Client = init_connection()
 
-# Função para carregar dados do Supabase
 def carregar_dados():
     try:
         response = supabase.table("lancamentos").select("*").execute()
@@ -75,6 +74,8 @@ def carregar_dados():
         if dados:
             df = pd.DataFrame(dados)
             df['data'] = pd.to_datetime(df['data'])
+            # Ordenar por data mais recente
+            df = df.sort_values(by="data", ascending=False)
             return df
         else:
             return pd.DataFrame(columns=[
@@ -82,30 +83,29 @@ def carregar_dados():
                 "parcelas", "status", "tipo", "categoria", "conta_cartao"
             ])
     except Exception as e:
-        st.error(f"Erro ao carregar dados do banco: {e}")
+        st.error(f"Erro ao carregar dados: {e}")
         return pd.DataFrame()
 
 df = carregar_dados()
 
-# Menu lateral
 usuario_logado = st.session_state.get("logged_user", "Usuário").capitalize()
 st.sidebar.title(f"💰 Olá, {usuario_logado}!")
-menu = st.sidebar.radio("Navegação", ["Dashboard", "Lançamentos", "Ver Tabela Completa"])
+menu = st.sidebar.radio("Navegação", ["Dashboard", "Lançamentos", "Ver Tabela Completa", "Relatórios"])
 
 if menu == "Dashboard":
     st.title("📊 Dashboard Financeiro")
     
     if df.empty:
-        st.info("Nenhum dado lançado ainda. Vá para 'Lançamentos' para começar a alimentar o banco de dados na nuvem!")
+        st.info("Nenhum dado lançado ainda.")
     else:
         receitas = df[df['tipo'] == 'Crédito']['valor'].astype(float).sum()
         despesas = df[df['tipo'] == 'Débito']['valor'].astype(float).sum()
         saldo = receitas - despesas
         
         col1, col2, col3 = st.columns(3)
-        col1.metric("Receitas", f"R$ {receitas:,.2f}")
-        col2.metric("Despesas", f"R$ {despesas:,.2f}")
-        col3.metric("Saldo", f"R$ {saldo:,.2f}")
+        col1.metric("Receitas", formatar_real(receitas))
+        col2.metric("Despesas", formatar_real(despesas))
+        col3.metric("Saldo", formatar_real(saldo))
         
         st.markdown("---")
         
@@ -132,14 +132,13 @@ if menu == "Dashboard":
 
 elif menu == "Lançamentos":
     st.title("➕ Novo Lançamento")
-    st.write("Adicione uma nova receita ou despesa. Ela será salva diretamente no Supabase!")
     
     with st.form("form_lancamento", clear_on_submit=True):
         col1, col2 = st.columns(2)
         
         with col1:
             data = st.date_input("Data", datetime.now())
-            descricao = st.text_input("Descrição (Ex: Supermercado Guanabara)")
+            descricao = st.text_input("Descrição")
             valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
             tipo = st.selectbox("Tipo", ["Débito", "Crédito"])
             status = st.selectbox("Status", ["Pago", "Pendente"])
@@ -172,7 +171,7 @@ elif menu == "Lançamentos":
             }
             try:
                 supabase.table("lancamentos").insert(novo_dado).execute()
-                st.success("Lançamento salvo com sucesso no banco de dados nas nuvens!")
+                st.success("Lançamento salvo com sucesso!")
             except Exception as e:
                 st.error(f"Erro ao salvar: {e}")
 
@@ -184,13 +183,13 @@ elif menu == "Ver Tabela Completa":
     else:
         df_exibicao = df.copy()
         df_exibicao['data'] = df_exibicao['data'].dt.strftime('%d/%m/%Y')
-        df_exibicao['valor'] = df_exibicao['valor'].astype(float)
+        df_exibicao['valor'] = df_exibicao['valor'].apply(formatar_real)
         
-        st.dataframe(df_exibicao.style.format({"valor": "R$ {:.2f}"}), use_container_width=True)
+        st.dataframe(df_exibicao, use_container_width=True)
         
         st.write("---")
         st.write("Apagar Lançamento:")
-        id_apagar = st.number_input("Digite o ID do lançamento que deseja apagar (veja na tabela acima):", min_value=0, step=1)
+        id_apagar = st.number_input("ID do lançamento para apagar:", min_value=0, step=1)
         if st.button("Apagar Lançamento"):
             if id_apagar > 0:
                 try:
@@ -199,8 +198,66 @@ elif menu == "Ver Tabela Completa":
                 except Exception as e:
                     st.error("Erro ao apagar.")
 
+elif menu == "Relatórios":
+    st.title("📈 Relatórios Avançados")
+    
+    if df.empty:
+        st.warning("Nenhum dado disponível para relatórios.")
+    else:
+        st.write("Utilize os filtros abaixo para gerar seu relatório:")
+        
+        # Filtros
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            data_inicio = st.date_input("Data Inicial", df['data'].min().date() if not df.empty else datetime.now().date())
+        with col2:
+            data_fim = st.date_input("Data Final", df['data'].max().date() if not df.empty else datetime.now().date())
+        with col3:
+            tipos_unicos = df['tipo'].dropna().unique().tolist()
+            tipo_filtro = st.multiselect("Filtrar por Tipo", options=tipos_unicos, default=tipos_unicos)
+            
+        col4, col5 = st.columns(2)
+        with col4:
+            cat_unicas = df['categoria'].dropna().unique().tolist()
+            cat_filtro = st.multiselect("Filtrar por Categoria", options=cat_unicas, default=cat_unicas)
+        with col5:
+            contas_unicas = df['conta_cartao'].dropna().unique().tolist()
+            conta_filtro = st.multiselect("Filtrar por Conta/Cartão", options=contas_unicas, default=contas_unicas)
+
+        # Aplicando Filtros
+        df_filtrado = df[
+            (df['data'].dt.date >= data_inicio) & 
+            (df['data'].dt.date <= data_fim) &
+            (df['tipo'].isin(tipo_filtro)) &
+            (df['categoria'].isin(cat_filtro)) &
+            (df['conta_cartao'].isin(conta_filtro))
+        ].copy()
+
+        st.markdown("---")
+        
+        # Resumo do Relatório
+        st.subheader("Resumo do Filtro")
+        r_receitas = df_filtrado[df_filtrado['tipo'] == 'Crédito']['valor'].astype(float).sum()
+        r_despesas = df_filtrado[df_filtrado['tipo'] == 'Débito']['valor'].astype(float).sum()
+        r_saldo = r_receitas - r_despesas
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total de Entradas", formatar_real(r_receitas))
+        c2.metric("Total de Saídas", formatar_real(r_despesas))
+        c3.metric("Saldo do Período", formatar_real(r_saldo))
+
+        st.write(f"**Registros encontrados:** {len(df_filtrado)}")
+
+        # Exibindo Tabela Filtrada com Formatos Corretos
+        if not df_filtrado.empty:
+            df_filtrado['data'] = df_filtrado['data'].dt.strftime('%d/%m/%Y')
+            df_filtrado['valor'] = df_filtrado['valor'].apply(formatar_real)
+            st.dataframe(df_filtrado, use_container_width=True)
+
 st.sidebar.markdown("---")
 if st.sidebar.button("Sair (Logout)"):
     st.session_state.clear()
     st.rerun()
 st.sidebar.success("✅ Conectado ao Supabase na Nuvem!")
+
