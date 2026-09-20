@@ -33,26 +33,34 @@ def check_password():
                 
         st.session_state["password_correct"] = False
 
-    # URL de uma imagem moderna e elegante de finanças/tecnologia
-    img_url = "https://images.unsplash.com/photo-1579532537598-459ecdaf39cc?auto=format&fit=crop&w=800&q=80"
+    # URL de uma imagem abstrata, limpa e revolucionária (estilo Apple/SaaS moderno)
+    img_url = "https://images.unsplash.com/photo-1618044733300-9472054094ee?auto=format&fit=crop&w=400&q=80"
 
     if "password_correct" not in st.session_state:
-        st.image(img_url, use_container_width=True)
-        st.title("🏦 Financeiro Tomper")
-        st.write("Acesso restrito. Por favor, identifique-se para continuar.")
-        st.text_input("👤 Usuário (Digite seu nome de acesso)", key="username", placeholder="Ex: erika")
-        st.text_input("🔑 Senha (Digite sua senha secreta)", type="password", key="password", placeholder="Sua senha...")
-        st.button("Entrar no Sistema", on_click=password_entered, use_container_width=True)
+        # Cria colunas para centralizar a caixa de login e deixar a tela mais "clean"
+        col1, col2, col3 = st.columns([1, 1.5, 1])
+        with col2:
+            # Imagem menor e centralizada
+            st.image(img_url, use_container_width=True)
+            st.markdown("<h1 style='text-align: center; font-size: 2.5rem;'>Financeiro Tomper</h1>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: gray; margin-bottom: 30px;'>Tecnologia e Controle. Identifique-se para acessar.</p>", unsafe_allow_html=True)
+            
+            st.text_input("👤 Usuário (Digite seu nome de acesso)", key="username", placeholder="Ex: erika")
+            st.text_input("🔑 Senha (Digite sua senha secreta)", type="password", key="password", placeholder="Sua senha secreta")
+            st.button("Entrar no Sistema", on_click=password_entered, use_container_width=True)
         return False
         
     elif not st.session_state["password_correct"]:
-        st.image(img_url, use_container_width=True)
-        st.title("🏦 Financeiro Tomper")
-        st.write("Acesso restrito. Por favor, identifique-se para continuar.")
-        st.text_input("👤 Usuário (Digite seu nome de acesso)", key="username", placeholder="Ex: erika")
-        st.text_input("🔑 Senha (Digite sua senha secreta)", type="password", key="password", placeholder="Sua senha...")
-        st.button("Entrar no Sistema", on_click=password_entered, use_container_width=True)
-        st.error("😕 Usuário ou senha incorretos! Tente novamente.")
+        col1, col2, col3 = st.columns([1, 1.5, 1])
+        with col2:
+            st.image(img_url, use_container_width=True)
+            st.markdown("<h1 style='text-align: center; font-size: 2.5rem;'>Financeiro Tomper</h1>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: gray; margin-bottom: 30px;'>Tecnologia e Controle. Identifique-se para acessar.</p>", unsafe_allow_html=True)
+            
+            st.text_input("👤 Usuário (Digite seu nome de acesso)", key="username", placeholder="Ex: erika")
+            st.text_input("🔑 Senha (Digite sua senha secreta)", type="password", key="password", placeholder="Sua senha secreta")
+            st.button("Entrar no Sistema", on_click=password_entered, use_container_width=True)
+            st.error("😕 Usuário ou senha incorretos! Tente novamente.")
         return False
         
     else:
