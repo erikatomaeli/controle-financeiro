@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from supabase import create_client, Client
 
 # Configuração da página
-st.set_page_config(page_title="Controle Financeiro Familiar", page_icon="💰", layout="wide")
+st.set_page_config(page_title="Financeiro Tomper", page_icon="🏦", layout="wide")
 
 # Função auxiliar para formatar moeda em Reais (PT-BR)
 def formatar_real(valor):
@@ -33,20 +33,26 @@ def check_password():
                 
         st.session_state["password_correct"] = False
 
+    # URL de uma imagem moderna e elegante de finanças/tecnologia
+    img_url = "https://images.unsplash.com/photo-1579532537598-459ecdaf39cc?auto=format&fit=crop&w=800&q=80"
+
     if "password_correct" not in st.session_state:
-        st.title("🔒 Acesso Restrito")
-        st.write("Por favor, faça login para acessar o Controle Financeiro.")
-        st.text_input("Usuário", key="username")
-        st.text_input("Senha", type="password", key="password")
-        st.button("Entrar", on_click=password_entered)
+        st.image(img_url, use_container_width=True)
+        st.title("🏦 Financeiro Tomper")
+        st.write("Acesso restrito. Por favor, identifique-se para continuar.")
+        st.text_input("👤 Usuário (Digite seu nome de acesso)", key="username", placeholder="Ex: erika")
+        st.text_input("🔑 Senha (Digite sua senha secreta)", type="password", key="password", placeholder="Sua senha...")
+        st.button("Entrar no Sistema", on_click=password_entered, use_container_width=True)
         return False
         
     elif not st.session_state["password_correct"]:
-        st.title("🔒 Acesso Restrito")
-        st.text_input("Usuário", key="username")
-        st.text_input("Senha", type="password", key="password")
-        st.button("Entrar", on_click=password_entered)
-        st.error("😕 Usuário ou senha incorretos!")
+        st.image(img_url, use_container_width=True)
+        st.title("🏦 Financeiro Tomper")
+        st.write("Acesso restrito. Por favor, identifique-se para continuar.")
+        st.text_input("👤 Usuário (Digite seu nome de acesso)", key="username", placeholder="Ex: erika")
+        st.text_input("🔑 Senha (Digite sua senha secreta)", type="password", key="password", placeholder="Sua senha...")
+        st.button("Entrar no Sistema", on_click=password_entered, use_container_width=True)
+        st.error("😕 Usuário ou senha incorretos! Tente novamente.")
         return False
         
     else:
@@ -146,31 +152,66 @@ if menu == "Dashboard":
                 st.write("Sem dados para mostrar neste ano.")
 
 elif menu == "Lançamentos":
-    st.title("➕ Novo Lançamento")
+    st.title("✨ Novo Lançamento")
+    st.markdown("Cadastre suas contas manualmente ou escolha um **Atalho Rápido** para preencher tudo automaticamente!")
+    
+    # ---------------------------------------------------
+    # ATALHOS INTELIGENTES (PREENCHIMENTO AUTOMÁTICO)
+    # ---------------------------------------------------
+    templates = {
+        "✍️ Nenhum (Preenchimento Manual)": {},
+        "⚡ Energia Elétrica (CPFL)": {"descricao": "CPFL", "categoria": "Moradia", "tipo": "Débito", "tipo_pgto": "Débito em Conta", "conta_cartao": "Conta Corrente", "status": "Pago"},
+        "💧 Água (Sanasa/Sabesp)": {"descricao": "Conta de Água", "categoria": "Moradia", "tipo": "Débito", "tipo_pgto": "Débito em Conta", "conta_cartao": "Conta Corrente", "status": "Pago"},
+        "🛒 Supermercado Mensal": {"descricao": "Supermercado Mensal", "categoria": "Alimentação", "tipo": "Débito", "tipo_pgto": "Cartão de Crédito", "conta_cartao": "Cartão Itaú Black", "status": "Pendente"},
+        "🌐 Internet / TV": {"descricao": "Internet", "categoria": "Moradia", "tipo": "Débito", "tipo_pgto": "Pix", "conta_cartao": "Conta Corrente", "status": "Pago"},
+        "⛽ Posto de Gasolina": {"descricao": "Gasolina", "categoria": "Transporte", "tipo": "Débito", "tipo_pgto": "Cartão de Crédito", "conta_cartao": "Cartão Itaú Black", "status": "Pendente"},
+        "💰 Recebimento de Salário": {"descricao": "Salário Mensal", "categoria": "Salário", "tipo": "Crédito", "tipo_pgto": "Pix", "conta_cartao": "Conta Corrente", "status": "Pago"}
+    }
+    
+    template_escolhido = st.selectbox("🎯 Lançamento Rápido (Contas Fixas e Comuns):", list(templates.keys()))
+    t = templates[template_escolhido] # Puxa as definições baseadas na escolha
+    
+    st.markdown("---")
     
     with st.form("form_lancamento", clear_on_submit=True):
+        st.subheader("📝 Detalhes do Lançamento")
         col1, col2 = st.columns(2)
         
         with col1:
-            data = st.date_input("Data", datetime.now(), format="DD/MM/YYYY")
-            descricao = st.text_input("Descrição")
-            valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
-            tipo = st.selectbox("Tipo", ["Débito", "Crédito"])
-            status = st.selectbox("Status", ["Pago", "Pendente"])
+            st.markdown("**📌 Informações Principais**")
+            data = st.date_input("📅 Data", datetime.now(), format="DD/MM/YYYY")
+            descricao = st.text_input("🏷️ Descrição", value=t.get("descricao", ""))
+            valor = st.number_input("💲 Valor (R$)", min_value=0.0, format="%.2f")
+            
+            tipo_opts = ["Débito", "Crédito"]
+            tipo_idx = tipo_opts.index(t.get("tipo", "Débito")) if t.get("tipo", "Débito") in tipo_opts else 0
+            tipo = st.selectbox("📈 Tipo", tipo_opts, index=tipo_idx)
             
         with col2:
-            categoria = st.selectbox("Categoria", [
-                "Moradia", "Alimentação", "Transporte", "Saúde", "Estudos", 
-                "Lazer", "Veículos", "Cartões de Crédito", "Salário", "Investimentos", "Outros"
-            ])
-            tipo_pgto = st.selectbox("Tipo de Pagamento", ["Boleto", "Pix", "Cartão de Crédito", "Cartão de Débito", "Dinheiro"])
-            parcelas = st.text_input("Parcelas (Ex: 1 de 10 ou '-' se não houver)", value="-")
-            conta_cartao = st.selectbox("Conta / Cartão", [
-                "Conta Corrente", "Mercado Pago", "Cartão PAN", "Cartão Samsung", 
-                "Cartão Flamengo", "Cartão Itaú Black", "Cartão Credicard", "Outros"
-            ])
+            st.markdown("**⚙️ Detalhes do Pagamento**")
             
-        submit = st.form_submit_button("Salvar na Nuvem")
+            cat_opts = ["Moradia", "Alimentação", "Transporte", "Saúde", "Estudos", "Lazer", "Veículos", "Cartões de Crédito", "Salário", "Investimentos", "Outros"]
+            cat_idx = cat_opts.index(t.get("categoria", "Outros")) if t.get("categoria", "Outros") in cat_opts else 10
+            categoria = st.selectbox("📂 Categoria", cat_opts, index=cat_idx)
+            
+            pgto_opts = ["Boleto", "Pix", "Cartão de Crédito", "Cartão de Débito", "Dinheiro", "Débito em Conta"]
+            pgto_idx = pgto_opts.index(t.get("tipo_pgto", "Pix")) if t.get("tipo_pgto", "Pix") in pgto_opts else 1
+            tipo_pgto = st.selectbox("💳 Forma de Pagamento", pgto_opts, index=pgto_idx)
+            
+            conta_opts = ["Conta Corrente", "Mercado Pago", "Cartão PAN", "Cartão Samsung", "Cartão Flamengo", "Cartão Itaú Black", "Cartão Credicard", "Outros"]
+            conta_idx = conta_opts.index(t.get("conta_cartao", "Conta Corrente")) if t.get("conta_cartao", "Conta Corrente") in conta_opts else 0
+            conta_cartao = st.selectbox("🏦 Conta / Cartão", conta_opts, index=conta_idx)
+            
+        st.markdown("---")
+        col3, col4 = st.columns(2)
+        with col3:
+            status_opts = ["Pago", "Pendente"]
+            status_idx = status_opts.index(t.get("status", "Pago")) if t.get("status", "Pago") in status_opts else 0
+            status = st.selectbox("✅ Status", status_opts, index=status_idx)
+        with col4:
+            parcelas = st.text_input("🔢 Parcelas (Ex: 1 de 10 ou deixe em branco)", value="-")
+            
+        submit = st.form_submit_button("🚀 Salvar Lançamento na Nuvem")
         
         if submit:
             novo_dado = {
@@ -186,7 +227,7 @@ elif menu == "Lançamentos":
             }
             try:
                 supabase.table("lancamentos").insert(novo_dado).execute()
-                st.success("Lançamento salvo com sucesso!")
+                st.success("✅ Lançamento salvo com sucesso!")
             except Exception as e:
                 st.error(f"Erro ao salvar: {e}")
 
