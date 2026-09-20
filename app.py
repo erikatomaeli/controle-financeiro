@@ -137,7 +137,7 @@ elif menu == "Lançamentos":
         col1, col2 = st.columns(2)
         
         with col1:
-            data = st.date_input("Data", datetime.now())
+            data = st.date_input("Data", datetime.now(), format="DD/MM/YYYY")
             descricao = st.text_input("Descrição")
             valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
             tipo = st.selectbox("Tipo", ["Débito", "Crédito"])
@@ -182,10 +182,11 @@ elif menu == "Ver Tabela Completa":
         st.write("Nenhum dado lançado ainda.")
     else:
         df_exibicao = df.copy()
+        # Força os dados de data a serem tratados como texto puro para o Streamlit não tentar adivinhar
         df_exibicao['data'] = df_exibicao['data'].dt.strftime('%d/%m/%Y')
         df_exibicao['valor'] = df_exibicao['valor'].apply(formatar_real)
         
-        st.dataframe(df_exibicao, use_container_width=True)
+        st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
         
         st.write("---")
         st.write("Apagar Lançamento:")
@@ -210,12 +211,13 @@ elif menu == "Relatórios":
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            data_inicio = st.date_input("Data Inicial", df['data'].min().date() if not df.empty else datetime.now().date())
+            data_inicio = st.date_input("Data Inicial", df['data'].min().date() if not df.empty else datetime.now().date(), format="DD/MM/YYYY")
         with col2:
-            data_fim = st.date_input("Data Final", df['data'].max().date() if not df.empty else datetime.now().date())
+            data_fim = st.date_input("Data Final", df['data'].max().date() if not df.empty else datetime.now().date(), format="DD/MM/YYYY")
         with col3:
             tipos_unicos = df['tipo'].dropna().unique().tolist()
             tipo_filtro = st.multiselect("Filtrar por Tipo", options=tipos_unicos, default=tipos_unicos)
+
             
         col4, col5 = st.columns(2)
         with col4:
