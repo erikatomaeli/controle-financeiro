@@ -108,13 +108,17 @@ if menu == "Dashboard":
     if df.empty:
         st.info("Nenhum dado lançado ainda.")
     else:
-        # Filtro de Ano
+        # Filtro de Ano (Padrão no Ano Atual)
         df['ano'] = df['data'].dt.year
         anos_disponiveis = sorted(df['ano'].dropna().unique().tolist(), reverse=True)
+        opcoes_ano = ["Todos"] + anos_disponiveis
+        
+        ano_atual = datetime.now().year
+        default_idx = opcoes_ano.index(ano_atual) if ano_atual in opcoes_ano else 0
         
         col_filtro, _ = st.columns([1, 3])
         with col_filtro:
-            ano_selecionado = st.selectbox("Filtrar por Ano:", ["Todos"] + anos_disponiveis)
+            ano_selecionado = st.selectbox("Filtrar por Ano:", opcoes_ano, index=default_idx)
             
         if ano_selecionado != "Todos":
             df_dash = df[df['ano'] == ano_selecionado].copy()
@@ -141,19 +145,26 @@ if menu == "Dashboard":
             df_despesas = df_dash[df_dash['tipo'] == 'Débito'].copy()
             if not df_despesas.empty:
                 df_despesas['valor'] = df_despesas['valor'].astype(float)
-                fig1 = px.pie(df_despesas, values='valor', names='categoria', hole=0.4)
+                # Gráfico de Rosca moderno
+                fig1 = px.pie(df_despesas, values='valor', names='categoria', hole=0.5, color_discrete_sequence=px.colors.qualitative.Pastel)
+                fig1.update_traces(textposition='inside', textinfo='percent+label')
+                fig1.update_layout(showlegend=False, margin=dict(t=20, b=20, l=0, r=0))
                 st.plotly_chart(fig1, use_container_width=True)
             else:
-                st.write("Sem despesas para mostrar neste ano.")
+                st.write("Sem despesas para mostrar neste período.")
                 
         with col_graf2:
             st.subheader("Gastos por Conta/Cartão")
             if not df_despesas.empty:
-                fig2 = px.bar(df_despesas.groupby('conta_cartao')['valor'].sum().reset_index(), 
-                              x='conta_cartao', y='valor', color='conta_cartao')
+                # Gráfico de Barras Horizontais ordenado
+                df_bar = df_despesas.groupby('conta_cartao')['valor'].sum().reset_index().sort_values('valor', ascending=True)
+                fig2 = px.bar(df_bar, x='valor', y='conta_cartao', orientation='h', 
+                              color='conta_cartao', text='valor', color_discrete_sequence=px.colors.qualitative.Set2)
+                fig2.update_traces(texttemplate='R$ %{text:,.2s}', textposition='outside')
+                fig2.update_layout(showlegend=False, xaxis_title="", yaxis_title="", margin=dict(t=20, b=20, l=0, r=0))
                 st.plotly_chart(fig2, use_container_width=True)
             else:
-                st.write("Sem dados para mostrar neste ano.")
+                st.write("Sem dados para mostrar neste período.")
 
 elif menu == "Lançamentos":
     st.title("✨ Novo Lançamento")
