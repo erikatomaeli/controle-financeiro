@@ -296,15 +296,15 @@ elif menu == "Relatórios":
             data_fim = st.date_input("📅 Data Final", hoje, format="DD/MM/YYYY")
         with col3:
             tipos_unicos = df['tipo'].dropna().unique().tolist()
-            tipo_filtro = st.multiselect("📈 Filtrar por Tipo", options=tipos_unicos, default=tipos_unicos)
+            tipo_filtro = st.pills("📈 Tipo", options=tipos_unicos, default=tipos_unicos, selection_mode="multi")
             
-        col4, col5 = st.columns(2)
-        with col4:
-            cat_unicas = sorted(df['categoria'].dropna().unique().tolist())
-            cat_filtro = st.multiselect("📂 Filtrar por Categoria", options=cat_unicas, default=cat_unicas)
-        with col5:
-            contas_unicas = sorted(df['conta_cartao'].dropna().unique().tolist())
-            conta_filtro = st.multiselect("🏦 Filtrar por Conta/Cartão", options=contas_unicas, default=contas_unicas)
+        st.markdown("---")
+        
+        cat_unicas = sorted(df['categoria'].dropna().unique().tolist())
+        cat_filtro = st.pills("📂 Filtrar por Categorias Rápidas", options=cat_unicas, default=cat_unicas, selection_mode="multi")
+        
+        contas_unicas = sorted(df['conta_cartao'].dropna().unique().tolist())
+        conta_filtro = st.pills("🏦 Filtrar por Contas / Cartões", options=contas_unicas, default=contas_unicas, selection_mode="multi")
 
         # Aplicando Filtros
         df_filtrado = df[
