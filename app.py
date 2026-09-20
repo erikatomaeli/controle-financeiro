@@ -282,26 +282,29 @@ elif menu == "Relatórios":
     if df.empty:
         st.warning("Nenhum dado disponível para relatórios.")
     else:
-        st.write("Utilize os filtros abaixo para gerar seu relatório:")
+        st.write("Utilize os filtros abaixo para investigar seus gastos detalhadamente:")
         
-        # Filtros
+        hoje = datetime.now().date()
+        primeiro_dia_ano = datetime(hoje.year, 1, 1).date()
+        
+        st.markdown("### 🔎 Filtros de Pesquisa")
+        
         col1, col2, col3 = st.columns(3)
-        
         with col1:
-            data_inicio = st.date_input("Data Inicial", df['data'].min().date() if not df.empty else datetime.now().date(), format="DD/MM/YYYY")
+            data_inicio = st.date_input("📅 Data Inicial", primeiro_dia_ano, format="DD/MM/YYYY")
         with col2:
-            data_fim = st.date_input("Data Final", df['data'].max().date() if not df.empty else datetime.now().date(), format="DD/MM/YYYY")
+            data_fim = st.date_input("📅 Data Final", hoje, format="DD/MM/YYYY")
         with col3:
             tipos_unicos = df['tipo'].dropna().unique().tolist()
-            tipo_filtro = st.multiselect("Filtrar por Tipo", options=tipos_unicos, default=tipos_unicos)
+            tipo_filtro = st.multiselect("📈 Filtrar por Tipo", options=tipos_unicos, default=tipos_unicos)
             
         col4, col5 = st.columns(2)
         with col4:
-            cat_unicas = df['categoria'].dropna().unique().tolist()
-            cat_filtro = st.multiselect("Filtrar por Categoria", options=cat_unicas, default=cat_unicas)
+            cat_unicas = sorted(df['categoria'].dropna().unique().tolist())
+            cat_filtro = st.multiselect("📂 Filtrar por Categoria", options=cat_unicas, default=cat_unicas)
         with col5:
-            contas_unicas = df['conta_cartao'].dropna().unique().tolist()
-            conta_filtro = st.multiselect("Filtrar por Conta/Cartão", options=contas_unicas, default=contas_unicas)
+            contas_unicas = sorted(df['conta_cartao'].dropna().unique().tolist())
+            conta_filtro = st.multiselect("🏦 Filtrar por Conta/Cartão", options=contas_unicas, default=contas_unicas)
 
         # Aplicando Filtros
         df_filtrado = df[
@@ -315,7 +318,7 @@ elif menu == "Relatórios":
         st.markdown("---")
         
         # Resumo do Relatório
-        st.subheader("Resumo do Filtro")
+        st.subheader("📊 Resumo do Período Selecionado")
         r_receitas = df_filtrado[df_filtrado['tipo'] == 'Crédito']['valor'].astype(float).sum()
         r_despesas = df_filtrado[df_filtrado['tipo'] == 'Débito']['valor'].astype(float).sum()
         r_saldo = r_receitas - r_despesas
@@ -325,13 +328,31 @@ elif menu == "Relatórios":
         c2.metric("Total de Saídas", formatar_real(r_despesas))
         c3.metric("Saldo do Período", formatar_real(r_saldo))
 
-        st.write(f"**Registros encontrados:** {len(df_filtrado)}")
+        st.markdown("---")
+        st.subheader(f"📋 Resultados Encontrados ({len(df_filtrado)} registros)")
 
-        # Exibindo Tabela Filtrada com Formatos Corretos
+        # Exibindo Tabela Filtrada com Estilo (Verde/Vermelho)
         if not df_filtrado.empty:
             df_filtrado['data'] = df_filtrado['data'].dt.strftime('%d/%m/%Y')
-            df_filtrado['valor'] = df_filtrado['valor'].apply(formatar_real)
-            st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
+            df_filtrado['valor_str'] = df_filtrado['valor'].apply(formatar_real)
+            
+            # Organizando colunas para ficar mais clean
+            colunas_exibicao = ['data', 'descricao', 'categoria', 'conta_cartao', 'tipo_pgto', 'tipo', 'status', 'valor_str']
+            df_exibicao = df_filtrado[colunas_exibicao].copy()
+            
+            # Renomeando colunas para exibição bonita
+            df_exibicao.columns = ['Data', 'Descrição', 'Categoria', 'Conta/Cartão', 'Pagamento', 'Tipo', 'Status', 'Valor']
+
+            # Função para colorir a linha baseado no tipo
+            def color_rows(row):
+                color = '#17B169' if row['Tipo'] == 'Crédito' else '#E44D2E'
+                return [f'color: {color}; font-weight: 500' if col == 'Valor' else '' for col in row.index]
+
+            # Aplica o estilo e exibe no Streamlit
+            styled_df = df_exibicao.style.apply(color_rows, axis=1)
+            st.dataframe(styled_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhum registro encontrado com estes filtros.")
 
 elif menu == "Cartões de Crédito":
     st.title("💳 Faturas e Cartões de Crédito")
