@@ -90,7 +90,7 @@ df = carregar_dados()
 
 usuario_logado = st.session_state.get("logged_user", "Usuário").capitalize()
 st.sidebar.title(f"💰 Olá, {usuario_logado}!")
-menu = st.sidebar.radio("Navegação", ["Dashboard", "Lançamentos", "Ver Tabela Completa", "Relatórios"])
+menu = st.sidebar.radio("Navegação", ["Dashboard", "Lançamentos", "Ver Tabela Completa", "Relatórios", "Cartões de Crédito"])
 
 if menu == "Dashboard":
     st.title("📊 Dashboard Financeiro")
@@ -167,7 +167,7 @@ elif menu == "Lançamentos":
             parcelas = st.text_input("Parcelas (Ex: 1 de 10 ou '-' se não houver)", value="-")
             conta_cartao = st.selectbox("Conta / Cartão", [
                 "Conta Corrente", "Mercado Pago", "Cartão PAN", "Cartão Samsung", 
-                "Cartão Flamengo", "Cartão Itaú Black", "Cartão Credicard", "Tucson", "Outros"
+                "Cartão Flamengo", "Cartão Itaú Black", "Cartão Credicard", "Outros"
             ])
             
         submit = st.form_submit_button("Salvar na Nuvem")
@@ -232,7 +232,6 @@ elif menu == "Relatórios":
         with col3:
             tipos_unicos = df['tipo'].dropna().unique().tolist()
             tipo_filtro = st.multiselect("Filtrar por Tipo", options=tipos_unicos, default=tipos_unicos)
-
             
         col4, col5 = st.columns(2)
         with col4:
@@ -270,7 +269,47 @@ elif menu == "Relatórios":
         if not df_filtrado.empty:
             df_filtrado['data'] = df_filtrado['data'].dt.strftime('%d/%m/%Y')
             df_filtrado['valor'] = df_filtrado['valor'].apply(formatar_real)
-            st.dataframe(df_filtrado, use_container_width=True)
+            st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
+
+elif menu == "Cartões de Crédito":
+    st.title("💳 Faturas e Cartões de Crédito")
+    
+    if df.empty:
+        st.warning("Nenhum dado disponível.")
+    else:
+        st.write("Veja os lançamentos separados por cada cartão, da mesma forma que você via nas abas do seu Excel.")
+        
+        # Identificar todos os cartões cadastrados
+        contas_disponiveis = sorted(df['conta_cartao'].dropna().unique().tolist())
+        
+        # Filtro de Cartão
+        col_cartao, _ = st.columns([1, 2])
+        with col_cartao:
+            cartao_selecionado = st.selectbox("Selecione o Cartão/Conta para visualizar:", contas_disponiveis)
+            
+        # Filtrar apenas os dados do cartão selecionado
+        df_cartao = df[df['conta_cartao'] == cartao_selecionado].copy()
+        
+        st.markdown(f"### Resumo de: {cartao_selecionado}")
+        
+        # Somatório de gastos e pagamentos deste cartão
+        despesas_cartao = df_cartao[df_cartao['tipo'] == 'Débito']['valor'].astype(float).sum()
+        receitas_cartao = df_cartao[df_cartao['tipo'] == 'Crédito']['valor'].astype(float).sum()
+        
+        c1, c2 = st.columns(2)
+        c1.metric("Total Gasto (Débitos)", formatar_real(despesas_cartao))
+        c2.metric("Total Abatido/Pago (Créditos)", formatar_real(receitas_cartao))
+        
+        st.markdown("---")
+        
+        if not df_cartao.empty:
+            df_cartao_exib = df_cartao.copy()
+            df_cartao_exib['data'] = df_cartao_exib['data'].dt.strftime('%d/%m/%Y')
+            df_cartao_exib['valor'] = df_cartao_exib['valor'].apply(formatar_real)
+            
+            st.dataframe(df_cartao_exib, use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhum lançamento encontrado para este cartão.")
 
 st.sidebar.markdown("---")
 if st.sidebar.button("Sair (Logout)"):
