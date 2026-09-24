@@ -34,16 +34,16 @@ def check_password():
         st.session_state["password_correct"] = False
 
     if "password_correct" not in st.session_state:
-        # Cria colunas para centralizar a caixa de login e deixar a tela mais "clean"
         col1, col2, col3 = st.columns([1, 1.5, 1])
         with col2:
             st.markdown("<h1 style='text-align: center; font-size: 4rem; margin-bottom: 0;'>🪙</h1>", unsafe_allow_html=True)
             st.markdown("<h1 style='text-align: center; font-size: 2.5rem; margin-top: 0;'>Financeiro Tomper</h1>", unsafe_allow_html=True)
             st.markdown("<p style='text-align: center; color: gray; margin-bottom: 30px;'>Tecnologia e Controle. Identifique-se para acessar.</p>", unsafe_allow_html=True)
             
-            st.text_input("👤 Usuário (Digite seu nome de acesso)", key="username", placeholder="Ex: erika")
-            st.text_input("🔑 Senha (Digite sua senha secreta)", type="password", key="password", placeholder="Sua senha secreta")
-            st.button("Entrar no Sistema", on_click=password_entered, use_container_width=True)
+            with st.form("login_form"):
+                st.text_input("👤 Usuário (Digite seu nome de acesso)", key="username", placeholder="Ex: erika", autocomplete="username")
+                st.text_input("🔑 Senha (Digite sua senha secreta)", type="password", key="password", placeholder="Sua senha secreta", autocomplete="current-password")
+                st.form_submit_button("Entrar no Sistema", on_click=password_entered, use_container_width=True)
         return False
         
     elif not st.session_state["password_correct"]:
@@ -53,9 +53,10 @@ def check_password():
             st.markdown("<h1 style='text-align: center; font-size: 2.5rem; margin-top: 0;'>Financeiro Tomper</h1>", unsafe_allow_html=True)
             st.markdown("<p style='text-align: center; color: gray; margin-bottom: 30px;'>Tecnologia e Controle. Identifique-se para acessar.</p>", unsafe_allow_html=True)
             
-            st.text_input("👤 Usuário (Digite seu nome de acesso)", key="username", placeholder="Ex: erika")
-            st.text_input("🔑 Senha (Digite sua senha secreta)", type="password", key="password", placeholder="Sua senha secreta")
-            st.button("Entrar no Sistema", on_click=password_entered, use_container_width=True)
+            with st.form("login_form_error"):
+                st.text_input("👤 Usuário (Digite seu nome de acesso)", key="username", placeholder="Ex: erika", autocomplete="username")
+                st.text_input("🔑 Senha (Digite sua senha secreta)", type="password", key="password", placeholder="Sua senha secreta", autocomplete="current-password")
+                st.form_submit_button("Entrar no Sistema", on_click=password_entered, use_container_width=True)
             st.error("😕 Usuário ou senha incorretos! Tente novamente.")
         return False
         
