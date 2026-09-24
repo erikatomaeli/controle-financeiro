@@ -320,23 +320,27 @@ elif menu == "Relatórios":
             col_f1, col_f2, col_f3 = st.columns(3)
             with col_f1:
                 tipos_unicos = df['tipo'].dropna().unique().tolist()
-                tipo_filtro = st.multiselect("📈 Tipo (Débito/Crédito)", options=tipos_unicos, default=tipos_unicos)
+                tipo_filtro = st.multiselect("📈 Tipo (Débito/Crédito)", options=tipos_unicos, default=[], placeholder="Todos os Tipos")
             with col_f2:
                 cat_unicas = sorted(df['categoria'].dropna().unique().tolist())
-                cat_filtro = st.multiselect("📂 Categorias", options=cat_unicas, default=cat_unicas)
+                cat_filtro = st.multiselect("📂 Categorias", options=cat_unicas, default=[], placeholder="Todas as Categorias")
             with col_f3:
-                # Na visão geral, podemos ocultar os cartões de crédito ou deixá-los desmarcados por padrão, mas manteremos todos para não perder dados.
                 contas_unicas = sorted(df['conta_cartao'].dropna().unique().tolist())
-                conta_filtro = st.multiselect("🏦 Contas / Cartões", options=contas_unicas, default=contas_unicas)
+                conta_filtro = st.multiselect("🏦 Contas / Cartões", options=contas_unicas, default=[], placeholder="Todas as Contas")
     
-            # Aplicando Filtros
+            # Aplicando Filtros Base (Datas)
             df_filtrado = df[
                 (df['data'].dt.date >= data_inicio) & 
-                (df['data'].dt.date <= data_fim) &
-                (df['tipo'].isin(tipo_filtro)) &
-                (df['categoria'].isin(cat_filtro)) &
-                (df['conta_cartao'].isin(conta_filtro))
+                (df['data'].dt.date <= data_fim)
             ].copy()
+            
+            # Aplicando Filtros Dinâmicos
+            if tipo_filtro:
+                df_filtrado = df_filtrado[df_filtrado['tipo'].isin(tipo_filtro)]
+            if cat_filtro:
+                df_filtrado = df_filtrado[df_filtrado['categoria'].isin(cat_filtro)]
+            if conta_filtro:
+                df_filtrado = df_filtrado[df_filtrado['conta_cartao'].isin(conta_filtro)]
     
             st.markdown("---")
             
@@ -396,17 +400,20 @@ elif menu == "Relatórios":
                 c_f1, c_f2 = st.columns(2)
                 with c_f1:
                     cartoes_unicos = sorted(df_apenas_cartoes['conta_cartao'].dropna().unique().tolist())
-                    c_conta_filtro = st.multiselect("💳 Selecione os Cartões", options=cartoes_unicos, default=cartoes_unicos)
+                    c_conta_filtro = st.multiselect("💳 Selecione os Cartões", options=cartoes_unicos, default=[], placeholder="Todos os Cartões")
                 with c_f2:
                     c_cat_unicas = sorted(df_apenas_cartoes['categoria'].dropna().unique().tolist())
-                    c_cat_filtro = st.multiselect("📂 Categorias (Cartões)", options=c_cat_unicas, default=c_cat_unicas)
+                    c_cat_filtro = st.multiselect("📂 Categorias (Cartões)", options=c_cat_unicas, default=[], placeholder="Todas as Categorias")
                     
                 df_cartoes_filtrado = df_apenas_cartoes[
                     (df_apenas_cartoes['data'].dt.date >= c_data_inicio) & 
-                    (df_apenas_cartoes['data'].dt.date <= c_data_fim) &
-                    (df_apenas_cartoes['conta_cartao'].isin(c_conta_filtro)) &
-                    (df_apenas_cartoes['categoria'].isin(c_cat_filtro))
+                    (df_apenas_cartoes['data'].dt.date <= c_data_fim)
                 ].copy()
+                
+                if c_conta_filtro:
+                    df_cartoes_filtrado = df_cartoes_filtrado[df_cartoes_filtrado['conta_cartao'].isin(c_conta_filtro)]
+                if c_cat_filtro:
+                    df_cartoes_filtrado = df_cartoes_filtrado[df_cartoes_filtrado['categoria'].isin(c_cat_filtro)]
                 
                 st.markdown("---")
                 # Resumo
