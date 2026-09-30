@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta
+import calendar
 from supabase import create_client, Client
 
 # Configuração da página
@@ -304,7 +305,9 @@ elif menu == "Relatórios":
         st.write("Utilize os filtros abaixo para investigar seus gastos detalhadamente:")
         
         hoje = datetime.now().date()
-        primeiro_dia_ano = datetime(hoje.year, 1, 1).date()
+        primeiro_dia_mes = datetime(hoje.year, hoje.month, 1).date()
+        ultimo_dia = calendar.monthrange(hoje.year, hoje.month)[1]
+        ultimo_dia_mes = datetime(hoje.year, hoje.month, ultimo_dia).date()
         
         aba_geral, aba_cartoes = st.tabs(["📊 Relatório Geral", "💳 Relatório de Cartões de Crédito"])
         
@@ -313,9 +316,9 @@ elif menu == "Relatórios":
             
             col_d1, col_d2 = st.columns(2)
             with col_d1:
-                data_inicio = st.date_input("📅 Data Inicial", primeiro_dia_ano, format="DD/MM/YYYY")
+                data_inicio = st.date_input("📅 Data Inicial", primeiro_dia_mes, format="DD/MM/YYYY")
             with col_d2:
-                data_fim = st.date_input("📅 Data Final", hoje, format="DD/MM/YYYY")
+                data_fim = st.date_input("📅 Data Final", ultimo_dia_mes, format="DD/MM/YYYY")
                 
             col_f1, col_f2, col_f3 = st.columns(3)
             with col_f1:
@@ -393,9 +396,9 @@ elif menu == "Relatórios":
             else:
                 c_d1, c_d2 = st.columns(2)
                 with c_d1:
-                    c_data_inicio = st.date_input("📅 Data Início (Cartões)", primeiro_dia_ano, format="DD/MM/YYYY")
+                    c_data_inicio = st.date_input("📅 Data Início (Cartões)", primeiro_dia_mes, format="DD/MM/YYYY")
                 with c_d2:
-                    c_data_fim = st.date_input("📅 Data Fim (Cartões)", hoje, format="DD/MM/YYYY")
+                    c_data_fim = st.date_input("📅 Data Fim (Cartões)", ultimo_dia_mes, format="DD/MM/YYYY")
                     
                 c_f1, c_f2 = st.columns(2)
                 with c_f1:
