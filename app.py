@@ -221,93 +221,119 @@ usuario_logado = st.session_state.get("logged_user", "Usuário").capitalize()
 st.sidebar.title(f"💰 Olá, {usuario_logado}!")
 
 def page_dashboard():
-        col_titulo, col_toggle = st.columns([3, 1])
-        with col_titulo:
-            st.title("📊 Dashboard Financeiro")
-        with col_toggle:
-            st.write("") # Espaçamento
-            mostrar_valores = st.toggle("👁️ Mostrar Valores", value=False)
-    
-        if df.empty:
-            st.info("Nenhum dado lançado ainda.")
-        else:
-            # Filtro de Ano (Padrão no Ano Atual)
-            df['ano'] = df['data'].dt.year
-            anos_disponiveis = sorted(df['ano'].dropna().unique().tolist(), reverse=True)
-            opcoes_ano = ["Todos"] + anos_disponiveis
+    col_titulo, col_toggle = st.columns([3, 1])
+    with col_titulo:
+        st.title("📊 Dashboard Financeiro")
+    with col_toggle:
+        st.write("") # Espaçamento
+        mostrar_valores = st.toggle("👁️ Mostrar Valores", value=False)
         
-            ano_atual = datetime.now().year
-            default_idx = opcoes_ano.index(ano_atual) if ano_atual in opcoes_ano else 0
-        
-            col_filtro, _ = st.columns([1, 3])
-            with col_filtro:
-                ano_selecionado = st.selectbox("Filtrar por Ano:", opcoes_ano, index=default_idx)
-            
-            if ano_selecionado != "Todos":
-                df_dash = df[df['ano'] == ano_selecionado].copy()
-            else:
-                df_dash = df.copy()
-            
-            st.markdown("---")
-            
-            receitas = df_dash[df_dash['tipo'] == 'Crédito']['valor'].astype(float).sum()
-            despesas = df_dash[df_dash['tipo'] == 'Débito']['valor'].astype(float).sum()
-            saldo = receitas - despesas
-        
-            # Oculta os valores se o toggle estiver desligado
-            val_receitas = formatar_real(receitas) if mostrar_valores else "R$ •••••"
-            val_despesas = formatar_real(despesas) if mostrar_valores else "R$ •••••"
-            val_saldo = formatar_real(saldo) if mostrar_valores else "R$ •••••"
-        
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Receitas", val_receitas)
-            col2.metric("Despesas", val_despesas)
-            col3.metric("Saldo", val_saldo)
-        
-            st.markdown("---")
-        
-            col_graf1, col_graf2 = st.columns(2)
-        
-            with col_graf1:
-                st.subheader("Despesas por Categoria")
-                df_despesas = df_dash[df_dash['tipo'] == 'Débito'].copy()
-                if not df_despesas.empty:
-                    df_despesas['valor'] = df_despesas['valor'].astype(float)
-                    # Gráfico de Rosca moderno
-                    fig1 = px.pie(df_despesas, values='valor', names='categoria', hole=0.5, color_discrete_sequence=px.colors.qualitative.Pastel)
-                
-                    # Ocultar % do gráfico se não estiver mostrando valores
-                    info_grafico = 'percent+label' if mostrar_valores else 'label'
-                    fig1.update_traces(textposition='inside', textinfo=info_grafico)
-                
-                    fig1.update_layout(showlegend=False, margin=dict(t=20, b=20, l=0, r=0))
-                    st.plotly_chart(fig1, use_container_width=True)
-                else:
-                    st.write("Sem despesas para mostrar neste período.")
-                
-            with col_graf2:
-                st.subheader("Gastos por Cartão de Crédito")
-                if not df_despesas.empty:
-                    # Filtrar apenas o que é cartão
-                    df_cartoes = df_despesas[df_despesas['conta_cartao'].str.contains('Cartão', case=False, na=False)].copy()
-                
-                    if not df_cartoes.empty:
-                        # Gráfico de Barras Horizontais ordenado
-                        df_bar = df_cartoes.groupby('conta_cartao')['valor'].sum().reset_index().sort_values('valor', ascending=True)
-                        fig2 = px.bar(df_bar, x='valor', y='conta_cartao', orientation='h', 
-                                      color='conta_cartao', text='valor', color_discrete_sequence=px.colors.qualitative.Set2)
-                                  
-                        # Se o olho estiver ativado, mostra R$ real, se não mostra pontinhos na barra
-                        formato_texto = 'R$ %{text:,.2s}' if mostrar_valores else 'R$ •••••'
-                        fig2.update_traces(texttemplate=formato_texto, textposition='outside')
-                    
-                        fig2.update_layout(showlegend=False, xaxis_title="", yaxis_title="", margin=dict(t=20, b=20, l=0, r=0))
-                        st.plotly_chart(fig2, use_container_width=True)
-                    else:
-                        st.write("Nenhum gasto em cartão neste período.")
-                else:
-                    st.write("Sem dados para mostrar neste período.")
+    def val_mask(valor):
+        return formatar_real(valor) if mostrar_valores else "R$ •••••"
 
+    if df.empty:
+        st.info("Nenhum dado lançado ainda.")
+        return
+
+    df['ano'] = df['data'].dt.year
+    df['mes'] = df['data'].dt.month
+
+    anos_disponiveis = sorted(df['ano'].dropna().unique().tolist(), reverse=True)
+    meses_nomes = {1:"Janeiro", 2:"Fevereiro", 3:"Março", 4:"Abril", 5:"Maio", 6:"Junho", 7:"Julho", 8:"Agosto", 9:"Setembro", 10:"Outubro", 11:"Novembro", 12:"Dezembro"}
+    
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        ano_selecionado = st.selectbox("📅 Selecione o Ano:", anos_disponiveis, index=0)
+    
+    df_ano = df[df['ano'] == ano_selecionado].copy()
+    meses_disponiveis = sorted(df_ano['mes'].dropna().unique().tolist())
+    opcoes_mes = ["Todos os Meses"] + [meses_nomes[m] for m in meses_disponiveis]
+    
+    with col_f2:
+        mes_str = st.selectbox("📆 Selecione o Mês:", opcoes_mes, index=0)
+        
+    if mes_str != "Todos os Meses":
+        mes_int = [k for k, v in meses_nomes.items() if v == mes_str][0]
+        df_dash = df_ano[df_ano['mes'] == mes_int].copy()
+    else:
+        df_dash = df_ano.copy()
+
+    st.markdown("---")
+    
+    receitas = df_dash[df_dash['tipo'] == 'Crédito']['valor'].astype(float).sum()
+    despesas = df_dash[df_dash['tipo'] == 'Débito']['valor'].astype(float).sum()
+    saldo = receitas - despesas
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("🟢 Entradas (Receitas)", val_mask(receitas))
+    c2.metric("🔴 Saídas (Despesas)", val_mask(despesas))
+    c3.metric("💰 Saldo do Período", val_mask(saldo))
+    
+    st.markdown("---")
+    
+    st.subheader("📈 Evolução Financeira")
+    if mes_str == "Todos os Meses":
+        df_evol = df_ano.groupby(['mes', 'tipo'])['valor'].sum().reset_index()
+        df_evol['mes_nome'] = df_evol['mes'].map(meses_nomes)
+        df_evol = df_evol.sort_values('mes')
+        
+        # Ensure we have a string sequence for X axis to prevent Plotly from treating it as category improperly
+        df_evol['mes_ord'] = df_evol['mes'].astype(str) + " - " + df_evol['mes_nome']
+        
+        fig_evol = px.line(df_evol, x='mes_nome', y='valor', color='tipo', 
+                           color_discrete_map={"Crédito": "#17B169", "Débito": "#E44D2E"},
+                           markers=True)
+    else:
+        df_dash['dia'] = df_dash['data'].dt.day
+        df_evol = df_dash.groupby(['dia', 'tipo'])['valor'].sum().reset_index()
+        df_evol = df_evol.sort_values('dia')
+        # force day to string to show correctly as discrete
+        df_evol['dia'] = df_evol['dia'].astype(str)
+        fig_evol = px.bar(df_evol, x='dia', y='valor', color='tipo', barmode='group',
+                          color_discrete_map={"Crédito": "#17B169", "Débito": "#E44D2E"})
+                          
+    fig_evol.update_layout(xaxis_title="", yaxis_title="", margin=dict(t=20, b=20, l=0, r=0))
+    if not mostrar_valores:
+        fig_evol.update_yaxes(showticklabels=False)
+        fig_evol.update_traces(hovertemplate="R$ •••••")
+    st.plotly_chart(fig_evol, use_container_width=True)
+
+    st.markdown("---")
+    
+    col_g1, col_g2 = st.columns(2)
+    df_despesas = df_dash[df_dash['tipo'] == 'Débito'].copy()
+    
+    with col_g1:
+        st.subheader("🍕 Despesas por Categoria")
+        if not df_despesas.empty:
+            cat_sum = df_despesas.groupby('categoria')['valor'].sum().reset_index().sort_values('valor', ascending=False)
+            if len(cat_sum) > 5:
+                top5 = cat_sum.head(5)
+                outros = pd.DataFrame([{'categoria': 'Outras', 'valor': cat_sum.iloc[5:]['valor'].sum()}])
+                cat_sum = pd.concat([top5, outros], ignore_index=True)
+                
+            fig_cat = px.pie(cat_sum, values='valor', names='categoria', hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
+            fig_cat.update_traces(textposition='inside', textinfo='percent+label' if mostrar_valores else 'label')
+            if not mostrar_valores:
+                fig_cat.update_traces(hovertemplate="•••••")
+            fig_cat.update_layout(showlegend=False, margin=dict(t=20, b=20, l=0, r=0))
+            st.plotly_chart(fig_cat, use_container_width=True)
+        else:
+            st.info("Sem despesas no período.")
+            
+    with col_g2:
+        st.subheader("💳 Top 5 Locais de Gasto")
+        if not df_despesas.empty:
+            df_gasto = df_despesas.groupby('conta_cartao')['valor'].sum().reset_index().sort_values('valor', ascending=True).tail(5)
+            fig_bar = px.bar(df_gasto, x='valor', y='conta_cartao', orientation='h', color_discrete_sequence=['#E44D2E'])
+            formato_texto = 'R$ %{x:,.2f}' if mostrar_valores else '•••••'
+            fig_bar.update_traces(texttemplate=formato_texto, textposition='outside')
+            if not mostrar_valores:
+                fig_bar.update_xaxes(showticklabels=False)
+            fig_bar.update_layout(showlegend=False, xaxis_title="", yaxis_title="", margin=dict(t=20, b=20, l=0, r=0))
+            st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            st.info("Sem despesas no período.")
 
 def page_lancamentos():
         st.title("✨ Novo Lançamento")
