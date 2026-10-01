@@ -193,6 +193,53 @@ if menu == "Dashboard":
                 st.write("Sem dados para mostrar neste período.")
 
 elif menu == "Lançamentos":
+    @st.dialog("✏️ Editar Lançamento")
+    def modal_editar_lancamento(row):
+        with st.form(f"form_edit_{row['id']}"):
+            e_data = st.date_input("Data", pd.to_datetime(row['data']).date(), format="DD/MM/YYYY")
+            e_desc = st.text_input("Descrição", str(row['descricao']))
+            e_val = st.number_input("Valor (R$)", value=float(row['valor']), min_value=0.0, format="%.2f")
+            
+            tipo_opts = ["Débito", "Crédito"]
+            t_idx = tipo_opts.index(row['tipo']) if row['tipo'] in tipo_opts else 0
+            e_tipo = st.selectbox("Tipo", tipo_opts, index=t_idx)
+            
+            cat_opts = ["Moradia", "Alimentação", "Transporte", "Saúde", "Estudos", "Lazer", "Veículos", "Cartões de Crédito", "Salário", "Investimentos", "Outros"]
+            c_idx = cat_opts.index(row['categoria']) if row['categoria'] in cat_opts else 10
+            e_cat = st.selectbox("Categoria", cat_opts, index=c_idx)
+            
+            pgto_opts = ["Boleto", "Pix", "Cartão de Crédito", "Cartão de Débito", "Dinheiro", "Débito em Conta"]
+            p_idx = pgto_opts.index(row['tipo_pgto']) if row['tipo_pgto'] in pgto_opts else 1
+            e_pgto = st.selectbox("Forma de Pagamento", pgto_opts, index=p_idx)
+            
+            conta_opts = ["Conta Corrente", "Mercado Pago", "Cartão PAN", "Cartão Samsung", "Cartão Flamengo", "Cartão Itaú Black", "Cartão Credicard", "Outros"]
+            ct_idx = conta_opts.index(row['conta_cartao']) if row['conta_cartao'] in conta_opts else 0
+            e_conta = st.selectbox("Conta / Cartão", conta_opts, index=ct_idx)
+            
+            st_opts = ["Pago", "Pendente"]
+            s_idx = st_opts.index(row['status']) if row['status'] in st_opts else 0
+            e_status = st.selectbox("Status", st_opts, index=s_idx)
+            
+            e_parc = st.text_input("Parcelas", value=str(row['parcelas']))
+            
+            if st.form_submit_button("Salvar Alterações", use_container_width=True):
+                atualizacao = {
+                    "data": str(e_data),
+                    "descricao": e_desc,
+                    "valor": float(e_val),
+                    "tipo": e_tipo,
+                    "categoria": e_cat,
+                    "tipo_pgto": e_pgto,
+                    "conta_cartao": e_conta,
+                    "status": e_status,
+                    "parcelas": e_parc
+                }
+                try:
+                    supabase.table("lancamentos").update(atualizacao).eq("id", row['id']).execute()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro: {e}")
+
     st.title("✨ Novo Lançamento")
     st.markdown("Cadastre suas contas manualmente ou escolha um **Atalho Rápido** para preencher tudo automaticamente!")
     
@@ -278,28 +325,30 @@ elif menu == "Lançamentos":
     if df.empty:
         st.info("Nenhum dado lançado ainda.")
     else:
-        st.write("Veja seus lançamentos recentes abaixo. Para apagar, clique na lixeira.")
+        st.write("Veja seus lançamentos recentes abaixo. Edite ou apague se necessário.")
         with st.container(height=600, border=True):
             for _, row in df.head(100).iterrows():
-                cor = "#17B169" if row['tipo'] == "Crédito" else "#E44D2E"
+                cor = ":green" if row['tipo'] == "Crédito" else ":red"
                 sinal = "+" if row['tipo'] == "Crédito" else "-"
                 
-                col1, col2, col3, col4 = st.columns([1.5, 3.5, 2, 1])
-                with col1:
+                c1, c2, c3, c4, c5 = st.columns([1.5, 3.5, 2, 0.7, 0.7])
+                with c1:
                     data_f = row['data'].strftime('%d/%m/%Y') if pd.notna(row['data']) else ""
-                    st.markdown(f"<div style='margin-top:10px;'><b>{data_f}</b></div>", unsafe_allow_html=True)
-                with col2:
-                    st.markdown(f"**{row['descricao']}**<br><span style='font-size:0.8em; color:gray;'>{row['categoria']} | {row['conta_cartao']}</span>", unsafe_allow_html=True)
-                with col3:
-                    st.markdown(f"<div style='margin-top:10px;'><span style='color:{cor}; font-weight:bold; font-size:1.1em;'>{sinal} {formatar_real(row['valor'])}</span></div>", unsafe_allow_html=True)
-                with col4:
+                    st.write(f"**{data_f}**")
+                with c2:
+                    st.write(f"{row['descricao']} ({row['categoria']})")
+                with c3:
+                    st.markdown(f"**{cor}[{sinal} {formatar_real(row['valor'])}]**")
+                with c4:
+                    if st.button("✏️", key=f"edit_{row['id']}", help="Editar lançamento"):
+                        modal_editar_lancamento(row)
+                with c5:
                     if st.button("🗑️", key=f"del_{row['id']}", help="Apagar lançamento"):
                         try:
                             supabase.table("lancamentos").delete().eq("id", row['id']).execute()
                             st.rerun()
                         except Exception as e:
                             st.error("Erro ao apagar.")
-                st.divider()
         if len(df) > 100:
             st.caption(f"Exibindo os 100 lançamentos mais recentes de um total de {len(df)}. Para ver dados mais antigos, utilize a aba Relatórios.")
 
