@@ -341,28 +341,46 @@ elif menu == "Lançamentos":
     if df.empty:
         st.info("Nenhum dado lançado ainda.")
     else:
-        st.write("Veja seus lançamentos recentes abaixo. Edite ou apague se necessário.")
-        with st.container(height=600, border=True):
-            for _, row in df.head(100).iterrows():
-                cor = ":green" if row['tipo'] == "Crédito" else ":red"
-                sinal = "+" if row['tipo'] == "Crédito" else "-"
-                
-                c1, c2, c3, c4, c5 = st.columns([1.5, 3.5, 2, 0.7, 0.7])
-                with c1:
-                    data_f = row['data'].strftime('%d/%m/%Y') if pd.notna(row['data']) else ""
-                    st.write(f"**{data_f}**")
-                with c2:
-                    st.write(f"{row['descricao']} ({row['categoria']})")
-                with c3:
-                    st.markdown(f"**{cor}[{sinal} {formatar_real(row['valor'])}]**")
-                with c4:
-                    if st.button("✏️", key=f"edit_{row['id']}", help="Editar lançamento"):
-                        modal_editar_lancamento(row)
-                with c5:
-                    if st.button("🗑️", key=f"del_{row['id']}", help="Apagar lançamento"):
-                        modal_apagar_lancamento(row)
-        if len(df) > 100:
-            st.caption(f"Exibindo os 100 lançamentos mais recentes de um total de {len(df)}. Para ver dados mais antigos, utilize a aba Relatórios.")
+        hoje_h = datetime.now().date()
+        primeiro_dia_mes_h = datetime(hoje_h.year, hoje_h.month, 1).date()
+        ultimo_dia_h = calendar.monthrange(hoje_h.year, hoje_h.month)[1]
+        ultimo_dia_mes_h = datetime(hoje_h.year, hoje_h.month, ultimo_dia_h).date()
+
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            h_data_inicio = st.date_input("📅 Data Inicial", primeiro_dia_mes_h, format="DD/MM/YYYY", key="h_d_inicio")
+        with col_f2:
+            h_data_fim = st.date_input("📅 Data Final", ultimo_dia_mes_h, format="DD/MM/YYYY", key="h_d_fim")
+            
+        df_historico = df[
+            (df['data'].dt.date >= h_data_inicio) & 
+            (df['data'].dt.date <= h_data_fim)
+        ].copy()
+
+        st.write(f"Exibindo **{len(df_historico)}** lançamentos no período selecionado. Edite ou apague se necessário.")
+        
+        if df_historico.empty:
+            st.warning("Nenhum lançamento encontrado neste período.")
+        else:
+            with st.container(height=600, border=True):
+                for _, row in df_historico.iterrows():
+                    cor = ":green" if row['tipo'] == "Crédito" else ":red"
+                    sinal = "+" if row['tipo'] == "Crédito" else "-"
+                    
+                    c1, c2, c3, c4, c5 = st.columns([1.5, 3.5, 2, 0.7, 0.7])
+                    with c1:
+                        data_f = row['data'].strftime('%d/%m/%Y') if pd.notna(row['data']) else ""
+                        st.write(f"**{data_f}**")
+                    with c2:
+                        st.write(f"{row['descricao']} ({row['categoria']})")
+                    with c3:
+                        st.markdown(f"**{cor}[{sinal} {formatar_real(row['valor'])}]**")
+                    with c4:
+                        if st.button("✏️", key=f"edit_{row['id']}", help="Editar lançamento"):
+                            modal_editar_lancamento(row)
+                    with c5:
+                        if st.button("🗑️", key=f"del_{row['id']}", help="Apagar lançamento"):
+                            modal_apagar_lancamento(row)
 
 elif menu == "Relatórios":
     st.title("📈 Relatórios Avançados")
