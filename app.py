@@ -105,6 +105,73 @@ if not df_geral.empty:
 else:
     df_config = pd.DataFrame()
     df = df_geral
+
+@st.dialog("✏️ Editar Lançamento")
+def modal_editar_lancamento(row):
+    with st.form(f"form_edit_{row['id']}"):
+        e_data = st.date_input("Data", pd.to_datetime(row['data']).date(), format="DD/MM/YYYY")
+        e_desc = st.text_input("Descrição", str(row['descricao']))
+        e_val = st.number_input("Valor (R$)", value=float(row['valor']), min_value=0.0, format="%.2f")
+        
+        tipo_opts = ["Débito", "Crédito"]
+        t_idx = tipo_opts.index(row['tipo']) if row['tipo'] in tipo_opts else 0
+        e_tipo = st.selectbox("Tipo", tipo_opts, index=t_idx)
+        
+        cat_opts = ["Moradia", "Alimentação", "Transporte", "Saúde", "Estudos", "Lazer", "Veículos", "Cartões de Crédito", "Salário", "Investimentos", "Outros"]
+        c_idx = cat_opts.index(row['categoria']) if row['categoria'] in cat_opts else 10
+        e_cat = st.selectbox("Categoria", cat_opts, index=c_idx)
+        
+        pgto_opts = ["Boleto", "Pix", "Cartão de Crédito", "Cartão de Débito", "Dinheiro", "Débito em Conta"]
+        p_idx = pgto_opts.index(row['tipo_pgto']) if row['tipo_pgto'] in pgto_opts else 1
+        e_pgto = st.selectbox("Forma de Pagamento", pgto_opts, index=p_idx)
+        
+        conta_opts = ["Conta Corrente", "Mercado Pago", "Cartão PAN", "Cartão Samsung", "Cartão Flamengo", "Cartão Itaú Black", "Cartão Credicard", "Outros"]
+        if not df_config.empty:
+            for nc in df_config['conta_cartao'].dropna().unique().tolist():
+                if nc not in conta_opts: conta_opts.append(nc)
+        ct_idx = conta_opts.index(row['conta_cartao']) if row['conta_cartao'] in conta_opts else 0
+        e_conta = st.selectbox("Conta / Cartão", conta_opts, index=ct_idx)
+        
+        st_opts = ["Pago", "Pendente"]
+        s_idx = st_opts.index(row['status']) if row['status'] in st_opts else 0
+        e_status = st.selectbox("Status", st_opts, index=s_idx)
+        
+        e_parc = st.text_input("Parcelas", value=str(row['parcelas']))
+        
+        if st.form_submit_button("Salvar Alterações", use_container_width=True):
+            atualizacao = {
+                "data": str(e_data),
+                "descricao": e_desc,
+                "valor": float(e_val),
+                "tipo": e_tipo,
+                "categoria": e_cat,
+                "tipo_pgto": e_pgto,
+                "conta_cartao": e_conta,
+                "status": e_status,
+                "parcelas": e_parc
+            }
+            try:
+                supabase.table("lancamentos").update(atualizacao).eq("id", row['id']).execute()
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro: {e}")
+
+@st.dialog("⚠️ Confirmar Exclusão")
+def modal_apagar_lancamento(row):
+    st.write(f"Tem certeza que deseja apagar o lançamento **{row['descricao']}**?")
+    st.write("Esta ação não poderá ser desfeita.")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("❌ Cancelar", use_container_width=True):
+            st.rerun()
+    with col2:
+        if st.button("🗑️ Sim, apagar", use_container_width=True, type="primary"):
+            try:
+                supabase.table("lancamentos").delete().eq("id", row['id']).execute()
+                st.rerun()
+            except Exception as e:
+                st.error("Erro ao apagar.")
+
 usuario_logado = st.session_state.get("logged_user", "Usuário").capitalize()
 st.sidebar.title(f"💰 Olá, {usuario_logado}!")
 menu = st.sidebar.radio("Navegação", ["Dashboard", "Lançamentos", "Relatórios", "Cartões de Crédito"])
@@ -198,72 +265,6 @@ if menu == "Dashboard":
                 st.write("Sem dados para mostrar neste período.")
 
 elif menu == "Lançamentos":
-    @st.dialog("✏️ Editar Lançamento")
-    def modal_editar_lancamento(row):
-        with st.form(f"form_edit_{row['id']}"):
-            e_data = st.date_input("Data", pd.to_datetime(row['data']).date(), format="DD/MM/YYYY")
-            e_desc = st.text_input("Descrição", str(row['descricao']))
-            e_val = st.number_input("Valor (R$)", value=float(row['valor']), min_value=0.0, format="%.2f")
-            
-            tipo_opts = ["Débito", "Crédito"]
-            t_idx = tipo_opts.index(row['tipo']) if row['tipo'] in tipo_opts else 0
-            e_tipo = st.selectbox("Tipo", tipo_opts, index=t_idx)
-            
-            cat_opts = ["Moradia", "Alimentação", "Transporte", "Saúde", "Estudos", "Lazer", "Veículos", "Cartões de Crédito", "Salário", "Investimentos", "Outros"]
-            c_idx = cat_opts.index(row['categoria']) if row['categoria'] in cat_opts else 10
-            e_cat = st.selectbox("Categoria", cat_opts, index=c_idx)
-            
-            pgto_opts = ["Boleto", "Pix", "Cartão de Crédito", "Cartão de Débito", "Dinheiro", "Débito em Conta"]
-            p_idx = pgto_opts.index(row['tipo_pgto']) if row['tipo_pgto'] in pgto_opts else 1
-            e_pgto = st.selectbox("Forma de Pagamento", pgto_opts, index=p_idx)
-            
-            conta_opts = ["Conta Corrente", "Mercado Pago", "Cartão PAN", "Cartão Samsung", "Cartão Flamengo", "Cartão Itaú Black", "Cartão Credicard", "Outros"]
-            if not df_config.empty:
-                for nc in df_config['conta_cartao'].dropna().unique().tolist():
-                    if nc not in conta_opts: conta_opts.append(nc)
-            ct_idx = conta_opts.index(row['conta_cartao']) if row['conta_cartao'] in conta_opts else 0
-            e_conta = st.selectbox("Conta / Cartão", conta_opts, index=ct_idx)
-            
-            st_opts = ["Pago", "Pendente"]
-            s_idx = st_opts.index(row['status']) if row['status'] in st_opts else 0
-            e_status = st.selectbox("Status", st_opts, index=s_idx)
-            
-            e_parc = st.text_input("Parcelas", value=str(row['parcelas']))
-            
-            if st.form_submit_button("Salvar Alterações", use_container_width=True):
-                atualizacao = {
-                    "data": str(e_data),
-                    "descricao": e_desc,
-                    "valor": float(e_val),
-                    "tipo": e_tipo,
-                    "categoria": e_cat,
-                    "tipo_pgto": e_pgto,
-                    "conta_cartao": e_conta,
-                    "status": e_status,
-                    "parcelas": e_parc
-                }
-                try:
-                    supabase.table("lancamentos").update(atualizacao).eq("id", row['id']).execute()
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro: {e}")
-
-    @st.dialog("⚠️ Confirmar Exclusão")
-    def modal_apagar_lancamento(row):
-        st.write(f"Tem certeza que deseja apagar o lançamento **{row['descricao']}**?")
-        st.write("Esta ação não poderá ser desfeita.")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("❌ Cancelar", use_container_width=True):
-                st.rerun()
-        with col2:
-            if st.button("🗑️ Sim, apagar", use_container_width=True, type="primary"):
-                try:
-                    supabase.table("lancamentos").delete().eq("id", row['id']).execute()
-                    st.rerun()
-                except Exception as e:
-                    st.error("Erro ao apagar.")
-                    
     st.title("✨ Novo Lançamento")
     st.markdown("Cadastre suas contas manualmente ou escolha um **Atalho Rápido** para preencher tudo automaticamente!")
     
@@ -641,11 +642,26 @@ elif menu == "Cartões de Crédito":
                 st.markdown("---")
                 
                 if not df_cartao.empty:
-                    df_cartao_exib = df_cartao.copy()
-                    df_cartao_exib['data'] = df_cartao_exib['data'].dt.strftime('%d/%m/%Y')
-                    df_cartao_exib['valor'] = df_cartao_exib['valor'].apply(formatar_real)
-                    
-                    st.dataframe(df_cartao_exib, use_container_width=True, hide_index=True)
+                    st.write("Lançamentos do período. Edite ou apague se necessário.")
+                    with st.container(height=500, border=True):
+                        for _, row in df_cartao.iterrows():
+                            cor = ":green" if row['tipo'] == "Crédito" else ":red"
+                            sinal = "+" if row['tipo'] == "Crédito" else "-"
+                            
+                            c1, c2, c3, c4, c5 = st.columns([1.5, 3.5, 2, 0.7, 0.7])
+                            with c1:
+                                data_f = row['data'].strftime('%d/%m/%Y') if pd.notna(row['data']) else ""
+                                st.write(f"**{data_f}**")
+                            with c2:
+                                st.write(f"{row['descricao']} ({row['categoria']})")
+                            with c3:
+                                st.markdown(f"**{cor}[{sinal} {formatar_real(row['valor'])}]**")
+                            with c4:
+                                if st.button("✏️", key=f"edit_c_{row['id']}", help="Editar lançamento"):
+                                    modal_editar_lancamento(row)
+                            with c5:
+                                if st.button("🗑️", key=f"del_c_{row['id']}", help="Apagar lançamento"):
+                                    modal_apagar_lancamento(row)
                 else:
                     st.info("Nenhum lançamento encontrado para este cartão no período.")
 
