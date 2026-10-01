@@ -608,10 +608,14 @@ elif menu == "Cartões de Crédito":
                     cartao_selecionado = st.selectbox("Selecione o Cartão para visualizar:", contas_disponiveis)
                     
                 limite_cartao = 0.0
+                titular_cartao = "Não informado"
                 if not df_config.empty:
                     limites_cartao = df_config[df_config['conta_cartao'] == cartao_selecionado]
                     if not limites_cartao.empty:
-                        limite_cartao = float(limites_cartao.sort_values('data').iloc[-1]['valor'])
+                        last_conf = limites_cartao.sort_values('data').iloc[-1]
+                        limite_cartao = float(last_conf['valor'])
+                        if "Titular: " in str(last_conf['descricao']):
+                            titular_cartao = str(last_conf['descricao']).replace("Titular: ", "")
                 
                 df_cartao = df[
                     (df['conta_cartao'] == cartao_selecionado) &
@@ -619,7 +623,7 @@ elif menu == "Cartões de Crédito":
                     (df['data'].dt.date <= data_fim_c)
                 ].copy()
                 
-                st.markdown(f"### Resumo de: {cartao_selecionado} (Período Selecionado)")
+                st.markdown(f"### Resumo de: {cartao_selecionado} (Titular: {titular_cartao})")
                 
                 despesas_cartao = df_cartao[df_cartao['tipo'] == 'Débito']['valor'].astype(float).sum()
                 receitas_cartao = df_cartao[df_cartao['tipo'] == 'Crédito']['valor'].astype(float).sum()
