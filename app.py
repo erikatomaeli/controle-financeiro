@@ -102,7 +102,7 @@ df = carregar_dados()
 
 usuario_logado = st.session_state.get("logged_user", "Usuário").capitalize()
 st.sidebar.title(f"💰 Olá, {usuario_logado}!")
-menu = st.sidebar.radio("Navegação", ["Dashboard", "Lançamentos", "Ver Tabela Completa", "Relatórios", "Cartões de Crédito"])
+menu = st.sidebar.radio("Navegação", ["Dashboard", "Lançamentos", "Relatórios", "Cartões de Crédito"])
 
 if menu == "Dashboard":
     col_titulo, col_toggle = st.columns([3, 1])
@@ -272,29 +272,36 @@ elif menu == "Lançamentos":
             except Exception as e:
                 st.error(f"Erro ao salvar: {e}")
 
-elif menu == "Ver Tabela Completa":
-    st.title("📋 Todos os Lançamentos")
+    st.markdown("---")
+    st.subheader("🕒 Histórico de Lançamentos")
     
     if df.empty:
-        st.write("Nenhum dado lançado ainda.")
+        st.info("Nenhum dado lançado ainda.")
     else:
-        df_exibicao = df.copy()
-        # Força os dados de data a serem tratados como texto puro para o Streamlit não tentar adivinhar
-        df_exibicao['data'] = df_exibicao['data'].dt.strftime('%d/%m/%Y')
-        df_exibicao['valor'] = df_exibicao['valor'].apply(formatar_real)
-        
-        st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
-        
-        st.write("---")
-        st.write("Apagar Lançamento:")
-        id_apagar = st.number_input("ID do lançamento para apagar:", min_value=0, step=1)
-        if st.button("Apagar Lançamento"):
-            if id_apagar > 0:
-                try:
-                    supabase.table("lancamentos").delete().eq("id", id_apagar).execute()
-                    st.success("Apagado com sucesso! Atualize a página.")
-                except Exception as e:
-                    st.error("Erro ao apagar.")
+        st.write("Veja seus lançamentos recentes abaixo. Para apagar, clique na lixeira.")
+        with st.container(height=600, border=True):
+            for _, row in df.head(100).iterrows():
+                cor = "#17B169" if row['tipo'] == "Crédito" else "#E44D2E"
+                sinal = "+" if row['tipo'] == "Crédito" else "-"
+                
+                col1, col2, col3, col4 = st.columns([1.5, 3.5, 2, 1])
+                with col1:
+                    data_f = row['data'].strftime('%d/%m/%Y') if pd.notna(row['data']) else ""
+                    st.markdown(f"<div style='margin-top:10px;'><b>{data_f}</b></div>", unsafe_allow_html=True)
+                with col2:
+                    st.markdown(f"**{row['descricao']}**<br><span style='font-size:0.8em; color:gray;'>{row['categoria']} | {row['conta_cartao']}</span>", unsafe_allow_html=True)
+                with col3:
+                    st.markdown(f"<div style='margin-top:10px;'><span style='color:{cor}; font-weight:bold; font-size:1.1em;'>{sinal} {formatar_real(row['valor'])}</span></div>", unsafe_allow_html=True)
+                with col4:
+                    if st.button("🗑️", key=f"del_{row['id']}", help="Apagar lançamento"):
+                        try:
+                            supabase.table("lancamentos").delete().eq("id", row['id']).execute()
+                            st.rerun()
+                        except Exception as e:
+                            st.error("Erro ao apagar.")
+                st.divider()
+        if len(df) > 100:
+            st.caption(f"Exibindo os 100 lançamentos mais recentes de um total de {len(df)}. Para ver dados mais antigos, utilize a aba Relatórios.")
 
 elif menu == "Relatórios":
     st.title("📈 Relatórios Avançados")
