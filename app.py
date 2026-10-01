@@ -322,15 +322,26 @@ def page_dashboard():
             st.info("Sem despesas no período.")
             
     with col_g2:
-        st.subheader("💳 Top 5 Locais de Gasto")
+        st.subheader("💳 Detalhamento de Gastos (Locais)")
         if not df_despesas.empty:
-            df_gasto = df_despesas.groupby('conta_cartao')['valor'].sum().reset_index().sort_values('valor', ascending=True).tail(5)
-            fig_bar = px.bar(df_gasto, x='valor', y='conta_cartao', orientation='h', color_discrete_sequence=['#E44D2E'])
-            formato_texto = 'R$ %{x:,.2f}' if mostrar_valores else '•••••'
-            fig_bar.update_traces(texttemplate=formato_texto, textposition='outside')
+            top5_contas = df_despesas.groupby('conta_cartao')['valor'].sum().nlargest(5).index
+            df_gasto_det = df_despesas[df_despesas['conta_cartao'].isin(top5_contas)]
+            df_gasto = df_gasto_det.groupby(['conta_cartao', 'categoria'])['valor'].sum().reset_index()
+            
+            ordem = df_gasto_det.groupby('conta_cartao')['valor'].sum().sort_values(ascending=True).index
+            
+            fig_bar = px.bar(df_gasto, x='valor', y='conta_cartao', color='categoria', orientation='h',
+                             color_discrete_sequence=px.colors.qualitative.Pastel)
+            fig_bar.update_yaxes(categoryorder='array', categoryarray=ordem)
+            
             if not mostrar_valores:
                 fig_bar.update_xaxes(showticklabels=False)
-            fig_bar.update_layout(showlegend=False, xaxis_title="", yaxis_title="", margin=dict(t=20, b=20, l=0, r=0))
+                fig_bar.update_traces(hovertemplate="•••••")
+            else:
+                fig_bar.update_traces(hovertemplate="%{color}: R$ %{x:,.2f}")
+                
+            fig_bar.update_layout(showlegend=True, xaxis_title="", yaxis_title="", margin=dict(t=20, b=20, l=0, r=0), 
+                                  legend_title="", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             st.plotly_chart(fig_bar, use_container_width=True)
         else:
             st.info("Sem despesas no período.")
@@ -383,13 +394,27 @@ def page_lancamentos():
                 tipo_pgto = st.selectbox("💳 Forma de Pagamento", pgto_opts, index=pgto_idx)
             
                 conta_opts = ["Conta Corrente", "Mercado Pago", "Cartão PAN", "Cartão Samsung", "Cartão Flamengo", "Cartão Itaú Black", "Cartão Credicard", "Outros"]
+                cartoes_configurados = []
                 if not df_config.empty:
                     df_c_ativos = df_config.sort_values('data').drop_duplicates(subset=['conta_cartao'], keep='last')
                     df_c_ativos = df_c_ativos[df_c_ativos['status'] != 'Inativo']
-                    for nc in df_c_ativos['conta_cartao'].dropna().unique().tolist():
+                    cartoes_configurados = df_c_ativos['conta_cartao'].dropna().unique().tolist()
+                    for nc in cartoes_configurados:
                         if nc not in conta_opts: conta_opts.append(nc)
-                conta_idx = conta_opts.index(t.get("conta_cartao", "Conta Corrente")) if t.get("conta_cartao", "Conta Corrente") in conta_opts else 0
-                conta_cartao = st.selectbox("🏦 Conta / Cartão", conta_opts, index=conta_idx)
+                
+                # Se for Cartão de Crédito, exibir opções focadas nisso e mudar o rótulo
+                if tipo_pgto == "Cartão de Crédito":
+                    opcoes_finais = [c for c in conta_opts if "Cartão" in c or c in cartoes_configurados]
+                    if not opcoes_finais: opcoes_finais = conta_opts # fallback
+                    rotulo_campo = "💳 Qual Cartão de Crédito?"
+                else:
+                    # Se for outro pagamento, exibir principalmente contas
+                    opcoes_finais = [c for c in conta_opts if c not in cartoes_configurados and "Cartão" not in c]
+                    if not opcoes_finais: opcoes_finais = conta_opts # fallback
+                    rotulo_campo = "🏦 Conta de Saída do Dinheiro"
+                    
+                conta_idx = opcoes_finais.index(t.get("conta_cartao", opcoes_finais[0])) if t.get("conta_cartao", opcoes_finais[0]) in opcoes_finais else 0
+                conta_cartao = st.selectbox(rotulo_campo, opcoes_finais, index=conta_idx)
             
             st.markdown("---")
             col3, col4 = st.columns(2)
