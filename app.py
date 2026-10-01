@@ -240,6 +240,22 @@ elif menu == "Lançamentos":
                 except Exception as e:
                     st.error(f"Erro: {e}")
 
+    @st.dialog("⚠️ Confirmar Exclusão")
+    def modal_apagar_lancamento(row):
+        st.write(f"Tem certeza que deseja apagar o lançamento **{row['descricao']}**?")
+        st.write("Esta ação não poderá ser desfeita.")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("❌ Cancelar", use_container_width=True):
+                st.rerun()
+        with col2:
+            if st.button("🗑️ Sim, apagar", use_container_width=True, type="primary"):
+                try:
+                    supabase.table("lancamentos").delete().eq("id", row['id']).execute()
+                    st.rerun()
+                except Exception as e:
+                    st.error("Erro ao apagar.")
+                    
     st.title("✨ Novo Lançamento")
     st.markdown("Cadastre suas contas manualmente ou escolha um **Atalho Rápido** para preencher tudo automaticamente!")
     
@@ -344,11 +360,7 @@ elif menu == "Lançamentos":
                         modal_editar_lancamento(row)
                 with c5:
                     if st.button("🗑️", key=f"del_{row['id']}", help="Apagar lançamento"):
-                        try:
-                            supabase.table("lancamentos").delete().eq("id", row['id']).execute()
-                            st.rerun()
-                        except Exception as e:
-                            st.error("Erro ao apagar.")
+                        modal_apagar_lancamento(row)
         if len(df) > 100:
             st.caption(f"Exibindo os 100 lançamentos mais recentes de um total de {len(df)}. Para ver dados mais antigos, utilize a aba Relatórios.")
 
