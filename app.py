@@ -98,8 +98,13 @@ def carregar_dados():
         st.error(f"Erro ao carregar dados: {e}")
         return pd.DataFrame()
 
-df = carregar_dados()
-
+df_geral = carregar_dados()
+if not df_geral.empty:
+    df_config = df_geral[df_geral['tipo'] == 'Config_Cartao'].copy()
+    df = df_geral[df_geral['tipo'] != 'Config_Cartao'].copy()
+else:
+    df_config = pd.DataFrame()
+    df = df_geral
 usuario_logado = st.session_state.get("logged_user", "Usuário").capitalize()
 st.sidebar.title(f"💰 Olá, {usuario_logado}!")
 menu = st.sidebar.radio("Navegação", ["Dashboard", "Lançamentos", "Relatórios", "Cartões de Crédito"])
@@ -213,6 +218,9 @@ elif menu == "Lançamentos":
             e_pgto = st.selectbox("Forma de Pagamento", pgto_opts, index=p_idx)
             
             conta_opts = ["Conta Corrente", "Mercado Pago", "Cartão PAN", "Cartão Samsung", "Cartão Flamengo", "Cartão Itaú Black", "Cartão Credicard", "Outros"]
+            if not df_config.empty:
+                for nc in df_config['conta_cartao'].dropna().unique().tolist():
+                    if nc not in conta_opts: conta_opts.append(nc)
             ct_idx = conta_opts.index(row['conta_cartao']) if row['conta_cartao'] in conta_opts else 0
             e_conta = st.selectbox("Conta / Cartão", conta_opts, index=ct_idx)
             
@@ -303,6 +311,9 @@ elif menu == "Lançamentos":
             tipo_pgto = st.selectbox("💳 Forma de Pagamento", pgto_opts, index=pgto_idx)
             
             conta_opts = ["Conta Corrente", "Mercado Pago", "Cartão PAN", "Cartão Samsung", "Cartão Flamengo", "Cartão Itaú Black", "Cartão Credicard", "Outros"]
+            if not df_config.empty:
+                for nc in df_config['conta_cartao'].dropna().unique().tolist():
+                    if nc not in conta_opts: conta_opts.append(nc)
             conta_idx = conta_opts.index(t.get("conta_cartao", "Conta Corrente")) if t.get("conta_cartao", "Conta Corrente") in conta_opts else 0
             conta_cartao = st.selectbox("🏦 Conta / Cartão", conta_opts, index=conta_idx)
             
@@ -524,42 +535,115 @@ elif menu == "Relatórios":
 elif menu == "Cartões de Crédito":
     st.title("💳 Faturas e Cartões de Crédito")
     
-    if df.empty:
-        st.warning("Nenhum dado disponível.")
-    else:
-        st.write("Veja os lançamentos separados por cada cartão, da mesma forma que você via nas abas do seu Excel.")
+    aba_faturas, aba_cadastro = st.tabs(["🧾 Ver Faturas", "➕ Cadastrar Novo Cartão"])
+    
+    with aba_cadastro:
+        st.subheader("Configurar Novo Cartão")
+        st.write("Cadastre um novo cartão e informe seu limite para acompanhar na dashboard.")
         
-        # Identificar todos os cartões cadastrados
-        contas_disponiveis = sorted(df['conta_cartao'].dropna().unique().tolist())
-        
-        # Filtro de Cartão
-        col_cartao, _ = st.columns([1, 2])
-        with col_cartao:
-            cartao_selecionado = st.selectbox("Selecione o Cartão/Conta para visualizar:", contas_disponiveis)
+        with st.form("form_novo_cartao"):
+            novo_cartao_nome = st.text_input("Nome do Cartão (Ex: Cartão Nubank)")
+            novo_cartao_titular = st.selectbox("Titular do Cartão", ["Erika", "Marcus"])
+            novo_cartao_limite = st.number_input("Limite do Cartão (R$)", min_value=0.0, format="%.2f")
             
-        # Filtrar apenas os dados do cartão selecionado
-        df_cartao = df[df['conta_cartao'] == cartao_selecionado].copy()
-        
-        st.markdown(f"### Resumo de: {cartao_selecionado}")
-        
-        # Somatório de gastos e pagamentos deste cartão
-        despesas_cartao = df_cartao[df_cartao['tipo'] == 'Débito']['valor'].astype(float).sum()
-        receitas_cartao = df_cartao[df_cartao['tipo'] == 'Crédito']['valor'].astype(float).sum()
-        
-        c1, c2 = st.columns(2)
-        c1.metric("Total Gasto (Débitos)", formatar_real(despesas_cartao))
-        c2.metric("Total Abatido/Pago (Créditos)", formatar_real(receitas_cartao))
-        
+            if st.form_submit_button("Salvar Cartão", type="primary"):
+                if novo_cartao_nome.strip():
+                    dado_cartao = {
+                        "data": str(datetime.now().date()),
+                        "descricao": f"Titular: {novo_cartao_titular}",
+                        "valor": float(novo_cartao_limite),
+                        "tipo": "Config_Cartao",
+                        "categoria": "Sistema",
+                        "tipo_pgto": "Sistema",
+                        "conta_cartao": novo_cartao_nome.strip(),
+                        "status": "Pago",
+                        "parcelas": "-"
+                    }
+                    try:
+                        supabase.table("lancamentos").insert(dado_cartao).execute()
+                        st.success("✅ Cartão cadastrado com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao cadastrar cartão: {e}")
+                else:
+                    st.error("Por favor, informe o nome do cartão.")
+                    
         st.markdown("---")
-        
-        if not df_cartao.empty:
-            df_cartao_exib = df_cartao.copy()
-            df_cartao_exib['data'] = df_cartao_exib['data'].dt.strftime('%d/%m/%Y')
-            df_cartao_exib['valor'] = df_cartao_exib['valor'].apply(formatar_real)
-            
-            st.dataframe(df_cartao_exib, use_container_width=True, hide_index=True)
+        st.subheader("Meus Cartões Cadastrados")
+        if not df_config.empty:
+            df_cards_unique = df_config.sort_values('data').drop_duplicates(subset=['conta_cartao'], keep='last')
+            for _, row in df_cards_unique.iterrows():
+                titular = str(row['descricao']).replace("Titular: ", "") if "Titular: " in str(row['descricao']) else "Não informado"
+                st.write(f"💳 **{row['conta_cartao']}** (Titular: {titular}) — Limite Configurado: {formatar_real(row['valor'])}")
         else:
-            st.info("Nenhum lançamento encontrado para este cartão.")
+            st.info("Nenhum cartão extra configurado ainda.")
+
+    with aba_faturas:
+        if df.empty:
+            st.warning("Nenhum dado disponível.")
+        else:
+            st.write("Veja os lançamentos separados por cada cartão.")
+            
+            hoje_c = datetime.now().date()
+            primeiro_dia_mes_c = datetime(hoje_c.year, hoje_c.month, 1).date()
+            ultimo_dia_c = calendar.monthrange(hoje_c.year, hoje_c.month)[1]
+            ultimo_dia_mes_c = datetime(hoje_c.year, hoje_c.month, ultimo_dia_c).date()
+            
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
+                data_inicio_c = st.date_input("📅 Data Inicial", primeiro_dia_mes_c, format="DD/MM/YYYY", key="c_inicio")
+            with col_d2:
+                data_fim_c = st.date_input("📅 Data Final", ultimo_dia_mes_c, format="DD/MM/YYYY", key="c_fim")
+            
+            contas_disponiveis = set(df['conta_cartao'].dropna().unique().tolist())
+            if not df_config.empty:
+                contas_disponiveis.update(df_config['conta_cartao'].dropna().unique().tolist())
+            contas_disponiveis = sorted(list(contas_disponiveis))
+            
+            if not contas_disponiveis:
+                st.info("Nenhum cartão encontrado.")
+            else:
+                col_cartao, _ = st.columns([1, 2])
+                with col_cartao:
+                    cartao_selecionado = st.selectbox("Selecione o Cartão para visualizar:", contas_disponiveis)
+                    
+                limite_cartao = 0.0
+                if not df_config.empty:
+                    limites_cartao = df_config[df_config['conta_cartao'] == cartao_selecionado]
+                    if not limites_cartao.empty:
+                        limite_cartao = float(limites_cartao.sort_values('data').iloc[-1]['valor'])
+                
+                df_cartao = df[
+                    (df['conta_cartao'] == cartao_selecionado) &
+                    (df['data'].dt.date >= data_inicio_c) & 
+                    (df['data'].dt.date <= data_fim_c)
+                ].copy()
+                
+                st.markdown(f"### Resumo de: {cartao_selecionado} (Período Selecionado)")
+                
+                despesas_cartao = df_cartao[df_cartao['tipo'] == 'Débito']['valor'].astype(float).sum()
+                receitas_cartao = df_cartao[df_cartao['tipo'] == 'Crédito']['valor'].astype(float).sum()
+                
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Total Gasto (Débitos)", formatar_real(despesas_cartao))
+                c2.metric("Total Abatido (Créditos)", formatar_real(receitas_cartao))
+                
+                if limite_cartao > 0:
+                    limite_livre = limite_cartao - despesas_cartao + receitas_cartao
+                    c3.metric("Limite Disponível", formatar_real(limite_livre), help=f"Limite total configurado: {formatar_real(limite_cartao)}")
+                else:
+                    c3.metric("Limite Disponível", "N/A", help="Cadastre o limite na aba de cadastro.")
+                
+                st.markdown("---")
+                
+                if not df_cartao.empty:
+                    df_cartao_exib = df_cartao.copy()
+                    df_cartao_exib['data'] = df_cartao_exib['data'].dt.strftime('%d/%m/%Y')
+                    df_cartao_exib['valor'] = df_cartao_exib['valor'].apply(formatar_real)
+                    
+                    st.dataframe(df_cartao_exib, use_container_width=True, hide_index=True)
+                else:
+                    st.info("Nenhum lançamento encontrado para este cartão no período.")
 
 st.sidebar.markdown("---")
 if st.sidebar.button("Sair (Logout)"):
